@@ -36,7 +36,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "backend.middleware.DynamicAdminMiddleware",  # кастомное middleware
 ]
 
 ROOT_URLCONF = "backend.urls"

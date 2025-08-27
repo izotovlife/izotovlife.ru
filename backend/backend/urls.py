@@ -1,9 +1,14 @@
 # backend/backend/urls.py
+# Путь: backend/backend/urls.py
+# Назначение: корневые URL проекта, включая API и безопасный вход в админку.
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from .views_security import create_admin_link, use_admin_link, admin_logout
 
 urlpatterns = [
     # API endpoints
@@ -13,13 +18,13 @@ urlpatterns = [
     # JWT авторизация
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-]
 
-# Динамический или стандартный admin
-if hasattr(settings, "DYNAMIC_ADMIN_URL"):
-    urlpatterns.append(path(f"{settings.DYNAMIC_ADMIN_URL}/", admin.site.urls))
-else:
-    urlpatterns.append(path("admin/", admin.site.urls))
+    # Безопасная админка
+    path("admin/link/", create_admin_link, name="admin_link"),
+    path("admin/<str:token>/", use_admin_link, name="admin_use"),
+    path("_internal_admin/", admin.site.urls),
+    path("admin/logout/", admin_logout, name="admin_logout"),
+]
 
 # Раздача медиа/статики в режиме DEBUG
 if settings.DEBUG:

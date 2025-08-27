@@ -1,9 +1,22 @@
 # backend/news/urls.py
+# Путь: backend/news/urls.py
+# Назначение: маршруты API для работы с новостями.
+
 from django.urls import path
-from .views import NewsListView, CategoryListView, PopularNewsView
+from .views import (
+    NewsListView,
+    CategoryListView,
+    PopularNewsView,
+    NewsCreateView,
+    NewsModerationListView,
+    NewsApproveView,
+)
 
 urlpatterns = [
     path("", NewsListView.as_view(), name="news_list"),
     path("categories/", CategoryListView.as_view(), name="categories"),
     path("popular/", PopularNewsView.as_view(), name="popular_news"),
+    path("create/", NewsCreateView.as_view(), name="news_create"),
+    path("moderation/", NewsModerationListView.as_view(), name="news_moderation"),
+    path("moderation/<int:pk>/approve/", NewsApproveView.as_view(), name="news_approve"),
 ]
