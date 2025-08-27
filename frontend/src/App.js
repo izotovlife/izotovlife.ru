@@ -6,7 +6,9 @@ import NewsList from "./components/NewsList";
 import Popular from "./components/Popular";
 import Register from "./components/Register";
 import Login from "./components/Login";
-import Profile from "./components/Profile";  // ✅ добавили
+import Profile from "./components/Profile";
+import AddNews from "./components/AddNews";
+import Moderation from "./components/Moderation";
 
 function App() {
   return (
@@ -23,8 +25,10 @@ function App() {
         {/* Отдельная страница для популярного (по желанию) */}
         <Route path="/popular" element={<Popular />} />
 
-        {/* ✅ Новый маршрут для профиля */}
+        {/* Маршруты профиля и работы с новостями */}
         <Route path="/profile" element={<Profile />} />
+        <Route path="/add" element={<AddNews />} />
+        <Route path="/moderation" element={<Moderation />} />
       </Routes>
     </Router>
   );
