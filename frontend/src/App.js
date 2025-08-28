@@ -1,4 +1,8 @@
-// frontend/src/App.js
+// ===== ФАЙЛ: frontend/src/App.js =====
+// ПУТЬ: C:\\Users\\ASUS Vivobook\\PycharmProjects\\izotovlife\\frontend\\src\\App.js
+// НАЗНАЧЕНИЕ: Корневой компонент React-приложения.
+// ОПИСАНИЕ: Настраивает роутинг и выводит основные страницы новостного агрегатора.
+
 import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
@@ -6,7 +10,7 @@ import NewsList from "./components/NewsList";
 import Popular from "./components/Popular";
 import Register from "./components/Register";
 import Login from "./components/Login";
-import Profile from "./components/Profile";  // ✅ добавили
+import Profile from "./components/Profile"; // ✅ добавили
 
 function App() {
   return (

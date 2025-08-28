@@ -2,34 +2,31 @@
 # ПУТЬ: C:\Users\ASUS Vivobook\PycharmProjects\izotovlife\backend\backend\views_security.py
 # НАЗНАЧЕНИЕ: Скрытая/одноразовая ссылка входа в админку.
 # ОПИСАНИЕ:
-#  - create_admin_link: генерирует токен (на 10 минут) и возвращает URL вида /admin/<token>/
-#    РЕКОМЕНДАЦИЯ: вызывать через management-команду open_admin (см. ниже), а не держать публичный POST.
-#  - use_admin_link: по токену логинит суперпользователя в сессию, токен гасит, редиректит в /_internal_admin/
-#  - admin_logout: ручка выхода
-#
+#  - admin_login: принимает логин и пароль суперпользователя, генерирует токен и выдаёт URL /admin/<token>/.
+#  - use_admin_link: по токену логинит суперпользователя, токен гасит, редиректит во внутренний путь /_internal_admin/.
+#  - admin_logout: ручка выхода.
 # Хранилище токенов — кэш Django. TTL 10 минут. Сессия тоже 10 минут бездействия.
 
 import secrets
 import json
-from datetime import timedelta
 
 from django.http import JsonResponse, HttpRequest, HttpResponseBadRequest, HttpResponseRedirect
-from django.contrib.auth import get_user_model, login, logout
+from django.contrib.auth import get_user_model, authenticate, login, logout
 from django.core.cache import cache
 from django.views.decorators.http import require_POST
 from django.utils import timezone
-from django.conf import settings
-from django.urls import reverse
 
 TOKEN_TTL_SECONDS = 10 * 60  # 10 минут
-
 CACHE_KEY_PREFIX = "admin_magic_token:"  # ключи вида admin_magic_token:<token> -> {"user_id": ..., "exp": ...}
+
 
 def _make_token() -> str:
     return secrets.token_urlsafe(32)
 
+
 def _cache_set_token(token: str, payload: dict):
     cache.set(f"{CACHE_KEY_PREFIX}{token}", payload, timeout=TOKEN_TTL_SECONDS)
+
 
 def _cache_pop_token(token: str):
     key = f"{CACHE_KEY_PREFIX}{token}"
@@ -38,36 +35,27 @@ def _cache_pop_token(token: str):
         cache.delete(key)
     return data
 
+
 @require_POST
-def create_admin_link(request: HttpRequest):
+def admin_login(request: HttpRequest):
     """
-    Создание одноразовой ссылки в админку.
-    Варианты:
-      - вызывать из management-команды (предпочтительно),
-      - временно разрешить локальный POST в dev.
-    Формат запроса: JSON {"username": "ИмяСуперпользователя"}.
-    Возврат: {"url": "/admin/<token>/"}
+    Проверяем логин и пароль суперпользователя и отдаём одноразовую ссылку.
+    Формат запроса: JSON {"username": "...", "password": "..."}
+    Возврат: {"url": "/admin/<token>/", "expires_in": 600}
     """
     try:
         body = json.loads(request.body.decode("utf-8")) if request.body else {}
     except Exception:
         body = {}
     username = body.get("username")
+    password = body.get("password")
 
-    User = get_user_model()
-    if not username:
-        # Попробуем взять первого суперпользователя
-        user = User.objects.filter(is_superuser=True).first()
-        if not user:
-            return HttpResponseBadRequest("No superuser found. Create one via createsuperuser.")
-    else:
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            return HttpResponseBadRequest("User not found.")
+    if not username or not password:
+        return HttpResponseBadRequest("Username and password required.")
 
-    if not user.is_superuser:
-        return HttpResponseBadRequest("User must be superuser.")
+    user = authenticate(request, username=username, password=password)
+    if not user or not user.is_superuser:
+        return HttpResponseBadRequest("Invalid credentials or not superuser.")
 
     token = _make_token()
     _cache_set_token(token, {
@@ -76,6 +64,7 @@ def create_admin_link(request: HttpRequest):
     })
     url = f"/admin/{token}/"
     return JsonResponse({"url": url, "expires_in": TOKEN_TTL_SECONDS})
+
 
 def use_admin_link(request: HttpRequest, token: str):
     """
@@ -101,7 +90,9 @@ def use_admin_link(request: HttpRequest, token: str):
     # Заходим во внутреннюю админку
     return HttpResponseRedirect("/_internal_admin/")
 
+
 @require_POST
 def admin_logout(request: HttpRequest):
     logout(request)
+    request.session.flush()
     return JsonResponse({"status": "ok"})

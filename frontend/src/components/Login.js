@@ -1,4 +1,9 @@
 // ===== ФАЙЛ: frontend/src/components/Login.js =====
+// ПУТЬ: C:\\Users\\ASUS Vivobook\\PycharmProjects\\izotovlife\\frontend\\src\\components\\Login.js
+// НАЗНАЧЕНИЕ: Общая форма входа для авторов и администратора.
+// ОПИСАНИЕ: Отправляет логин и пароль на backend; суперпользователь получает
+//            одноразовую ссылку в админку, остальные — JWT токены.
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
@@ -11,16 +16,18 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(""); // очищаем ошибки
+    setError("");
 
     try {
-      const res = await api.post("token/", { username, password });
+      const res = await api.post("accounts/login/", { username, password });
 
-      // сохраняем токены в localStorage
+      if (res.data.admin_url) {
+        window.location.href = res.data.admin_url;
+        return;
+      }
+
       localStorage.setItem("access", res.data.access);
       localStorage.setItem("refresh", res.data.refresh);
-
-      // переходим на страницу профиля
       navigate("/profile");
     } catch (err) {
       console.error("Ошибка входа:", err);

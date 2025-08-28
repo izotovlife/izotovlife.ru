@@ -1,4 +1,8 @@
-# backend/backend/settings.py
+# ===== ФАЙЛ: backend/backend/settings.py =====
+# ПУТЬ: C:\Users\ASUS Vivobook\PycharmProjects\izotovlife\backend\backend\settings.py
+# НАЗНАЧЕНИЕ: Основные настройки Django проекта.
+# ОПИСАНИЕ: Конфигурация приложений, PostgreSQL, JWT и статических файлов.
+
 import os
 from pathlib import Path
 from datetime import timedelta
@@ -36,7 +40,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "backend.middleware.DynamicAdminMiddleware",  # кастомное middleware
 ]
 
 ROOT_URLCONF = "backend.urls"

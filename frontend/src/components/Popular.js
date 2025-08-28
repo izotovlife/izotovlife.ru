@@ -29,11 +29,11 @@ function Popular() {
         {popular.map((n, index) => (
           <div key={`${n.id}-${index}`} className="col s12 m6 l4">
             <div className="card">
-              {n.image && (
-                <div className="card-image">
-                  <img src={n.image} alt={n.title} />
-                </div>
-              )}
+                {n.image && (
+                  <div className="card-image">
+                    <img className="responsive-img" src={n.image} alt={n.title} />
+                  </div>
+                )}
               <div className="card-content">
                 <span className="card-title">
                   <a href={n.link} target="_blank" rel="noopener noreferrer">

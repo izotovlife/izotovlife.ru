@@ -1,8 +1,11 @@
-# backend/accounts/urls.py
+# ===== ФАЙЛ: backend/accounts/urls.py =====
+# НАЗНАЧЕНИЕ: Маршруты приложения аккаунтов (регистрация, профиль, вход).
+
 from django.urls import path
-from .views import RegisterView, ProfileView
+from .views import RegisterView, ProfileView, LoginView
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
     path("profile/", ProfileView.as_view(), name="profile"),
+    path("login/", LoginView.as_view(), name="login"),
 ]

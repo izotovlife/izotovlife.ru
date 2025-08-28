@@ -1,0 +1,9 @@
+<!-- ===== ФАЙЛ: frontend/public/favicon.svg =====
+     ПУТЬ: C:\\Users\\ASUS Vivobook\\PycharmProjects\\izotovlife\\frontend\\public\\favicon.svg
+     НАЗНАЧЕНИЕ: Фирменная иконка IzotovLife.
+     ОПИСАНИЕ: Отображается на вкладке браузера и в манифесте PWA. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" ry="10" fill="#ff5722"/>
+  <text x="50%" y="50%" text-anchor="middle" dy=".35em"
+        font-family="Arial, sans-serif" font-size="32" fill="#fff">IL</text>
+</svg>

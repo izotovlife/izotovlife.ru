@@ -1,0 +1,13 @@
+{# ===== ФАЙЛ: backend/news/templates/admin/news_change_list.html ===== #}
+{# ПУТЬ: C:\\Users\\ASUS Vivobook\\PycharmProjects\\izotovlife\\backend\\news\\templates\\admin\\news_change_list.html #}
+{# НАЗНАЧЕНИЕ: Шаблон списка новостей в админке с кнопкой запуска парсера. #}
+{# ОПИСАНИЕ: Наследует стандартный change_list и добавляет кнопку «Запустить парсер RSS». #}
+
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+<li>
+  <a href="{% url 'admin:news-fetch-rss' %}" class="button">Запустить парсер RSS</a>
+</li>
+{{ block.super }}
+{% endblock %}
