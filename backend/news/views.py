@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from accounts.models import Subscription
 from .models import News, Category
 from .serializers import NewsSerializer, CategorySerializer, NewsCreateSerializer
 
@@ -26,6 +27,30 @@ class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [permissions.AllowAny]
+
+
+class CategorySubscribeView(generics.GenericAPIView):
+    """Подписка пользователя на категорию."""
+
+    queryset = Category.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        category = self.get_object()
+        Subscription.objects.get_or_create(user=request.user, category=category)
+        return Response({"detail": "subscribed"}, status=status.HTTP_201_CREATED)
+
+
+class CategoryUnsubscribeView(generics.GenericAPIView):
+    """Отписка пользователя от категории."""
+
+    queryset = Category.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        category = self.get_object()
+        Subscription.objects.filter(user=request.user, category=category).delete()
+        return Response({"detail": "unsubscribed"}, status=status.HTTP_200_OK)
 
 class PopularNewsView(generics.ListAPIView):
     queryset = News.objects.filter(is_moderated=True).order_by("-id")[:10]
