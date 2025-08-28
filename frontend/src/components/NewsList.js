@@ -4,6 +4,7 @@
 // ОПИСАНИЕ: Использует Materialize CSS для карточек новостей.
 
 import React, { useEffect, useState, useCallback } from "react";
+import M from "materialize-css";
 import api from "../api";
 
 function NewsList() {
@@ -37,6 +38,11 @@ function NewsList() {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  // Инициализируем компоненты Materialize после загрузки категорий
+  useEffect(() => {
+    M.AutoInit();
+  }, [categories]);
 
   useEffect(() => {
     loadNews();
@@ -80,11 +86,7 @@ function NewsList() {
           </label>
         </div>
         <div className="input-field col s12 m6">
-          <select
-            value={category}
-            onChange={handleCategoryChange}
-            className="browser-default"
-          >
+          <select value={category} onChange={handleCategoryChange}>
             <option value="">Все категории</option>
             {categories.map((c) => (
               <option key={c.id} value={c.slug}>
@@ -95,23 +97,30 @@ function NewsList() {
         </div>
       </div>
 
-      {news.map((n, index) => (
-        <div key={`${n.id}-${index}`} className="card">
-          {n.image && (
-            <div className="card-image">
-              <img src={n.image} alt={n.title} />
+      <div className="row">
+        {news.map((n, index) => (
+          <div key={`${n.id}-${index}`} className="col s12 m6 l4">
+            <div className="card hoverable">
+              {n.image && (
+                <div className="card-image">
+                  <img src={n.image} alt={n.title} />
+                </div>
+              )}
+              <div className="card-content">
+                <span className="card-title truncate">
+                  {n.title}
+                </span>
+                {n.content && <p>{n.content.slice(0, 100)}...</p>}
+              </div>
+              <div className="card-action">
+                <a href={n.link} target="_blank" rel="noopener noreferrer">
+                  Читать далее
+                </a>
+              </div>
             </div>
-          )}
-          <div className="card-content">
-            <span className="card-title">
-              <a href={n.link} target="_blank" rel="noopener noreferrer">
-                {n.title}
-              </a>
-            </span>
-            {n.content && <p>{n.content.slice(0, 150)}...</p>}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

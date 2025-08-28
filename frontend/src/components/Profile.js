@@ -1,4 +1,9 @@
-// frontend/src/components/Profile.js
+// ===== ФАЙЛ: frontend/src/components/Profile.js =====
+// ПУТЬ: C:\\Users\\ASUS Vivobook\\PycharmProjects\\izotovlife\\frontend\\src\\components\\Profile.js
+// НАЗНАЧЕНИЕ: Страница профиля авторизованного пользователя.
+// ОПИСАНИЕ: Загружает данные профиля через API и отображает их в карточке
+//            Materialize.
+
 import React, { useEffect, useState } from "react";
 import api from "../api";
 
@@ -25,9 +30,13 @@ function Profile() {
 
   return (
     <div className="container">
-      <h2>Профиль</h2>
-      <p><b>Имя пользователя:</b> {profile.username}</p>
-      <p><b>Email:</b> {profile.email}</p>
+      <div className="card">
+        <div className="card-content">
+          <span className="card-title">Профиль</span>
+          <p><b>Имя пользователя:</b> {profile.username}</p>
+          <p><b>Email:</b> {profile.email}</p>
+        </div>
+      </div>
     </div>
   );
 }

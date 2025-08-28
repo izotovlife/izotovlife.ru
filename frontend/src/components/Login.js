@@ -1,4 +1,8 @@
 // ===== ФАЙЛ: frontend/src/components/Login.js =====
+// ПУТЬ: C:\\Users\\ASUS Vivobook\\PycharmProjects\\izotovlife\\frontend\\src\\components\\Login.js
+// НАЗНАЧЕНИЕ: Форма входа для авторов и редакторов.
+// ОПИСАНИЕ: Отправляет логин и пароль на backend и сохраняет JWT токены.
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
