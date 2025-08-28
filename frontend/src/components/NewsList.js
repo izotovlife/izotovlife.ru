@@ -1,6 +1,6 @@
-// frontend/src/components/NewsList.js
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../api";
+import { generateShareLink } from "../utils/share";
 
 function NewsList() {
   const [news, setNews] = useState([]);
@@ -32,8 +32,8 @@ function NewsList() {
 
   return (
     <div className="container">
-      {news.map((n, index) => (
-        <div key={`${n.id}-${index}`} className="card">
+      {news.map((n) => (
+        <div key={n.id} className="card">
           {n.image && (
             <div className="card-image">
               <img src={n.image} alt={n.title} />
@@ -46,6 +46,29 @@ function NewsList() {
               </a>
             </span>
             <p>{n.content?.slice(0, 150)}...</p>
+          </div>
+          <div className="card-action">
+            <a
+              href={generateShareLink("vk", n.link, n.title)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              VK
+            </a>
+            <a
+              href={generateShareLink("telegram", n.link, n.title)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Telegram
+            </a>
+            <a
+              href={generateShareLink("twitter", n.link, n.title)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Twitter
+            </a>
           </div>
         </div>
       ))}
