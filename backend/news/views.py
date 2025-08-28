@@ -8,6 +8,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.core.management import call_command
 
 from .models import News, Category
 from .serializers import NewsSerializer, CategorySerializer, NewsCreateSerializer
@@ -24,6 +25,16 @@ class NewsListView(generics.ListAPIView):
     serializer_class = NewsSerializer
     pagination_class = NewsPagination
     permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        category_slug = self.request.query_params.get("category")
+        search = self.request.query_params.get("search")
+        if category_slug:
+            qs = qs.filter(category__slug=category_slug)
+        if search:
+            qs = qs.filter(title__icontains=search)
+        return qs
 
 
 class CategoryListView(generics.ListAPIView):
@@ -71,3 +82,12 @@ class ApproveNewsView(APIView):
         news.is_moderated = True
         news.save()
         return Response({"status": "approved"})
+
+
+class FetchRSSView(APIView):
+    """Запуск парсера RSS из админки"""
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        call_command("fetch_rss")
+        return Response({"status": "fetched"})

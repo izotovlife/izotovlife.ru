@@ -8,6 +8,7 @@ from .views import (
     NewsListView, CategoryListView, PopularNewsView,
     AuthorNewsCreateView, UserNewsListView,
     PendingNewsListView, ApproveNewsView,
+    FetchRSSView,
 )
 
 urlpatterns = [
@@ -18,4 +19,5 @@ urlpatterns = [
     path("mine/", UserNewsListView.as_view(), name="my_news"),
     path("pending/", PendingNewsListView.as_view(), name="pending_news"),
     path("<int:pk>/approve/", ApproveNewsView.as_view(), name="approve_news"),
+    path("fetch/", FetchRSSView.as_view(), name="fetch_rss"),
 ]
