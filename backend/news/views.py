@@ -2,6 +2,9 @@
 # Путь: backend/news/views.py
 # Назначение: API-представления для работы с новостями и категориями.
 
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -28,6 +31,21 @@ class PopularNewsView(generics.ListAPIView):
     queryset = News.objects.filter(is_moderated=True).order_by("-id")[:10]
     serializer_class = NewsSerializer
     permission_classes = [permissions.AllowAny]
+
+
+class TopNewsView(generics.ListAPIView):
+    serializer_class = NewsSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        period = self.request.query_params.get("period", "day")
+        now = timezone.now()
+        delta = timedelta(days=7) if period == "week" else timedelta(days=1)
+        start = now - delta
+        return (
+            News.objects.filter(is_moderated=True, created_at__gte=start)
+            .order_by("-views_count")[:10]
+        )
 
 
 class NewsCreateView(generics.CreateAPIView):
