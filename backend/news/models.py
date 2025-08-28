@@ -72,6 +72,9 @@ class News(models.Model):
         db_constraint=False,  # отключаем FK-проверку на уровне Django ORM
     )
 
+    # счетчик просмотров
+    views_count = models.PositiveIntegerField(default=0)
+
     # логические флаги
     is_approved = models.BooleanField(default=False)
     is_popular = models.BooleanField(default=False)
