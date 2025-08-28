@@ -1,10 +1,6 @@
-// frontend/src/components/Popular.js
-// Путь: C:\Users\ASUS Vivobook\PycharmProjects\izotovlife\frontend\src\components\Popular.js
-// Назначение: компонент для отображения популярных новостей.
-// Исправлено: добавлен useCallback для загрузки данных и корректные зависимости в useEffect.
-
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../api";
+import { generateShareLink } from "../utils/share";
 
 function Popular() {
   const [popular, setPopular] = useState([]);
@@ -26,8 +22,8 @@ function Popular() {
     <div className="container">
       <h4>Популярное</h4>
       <div className="row">
-        {popular.map((n, index) => (
-          <div key={`${n.id}-${index}`} className="col s12 m6 l4">
+        {popular.map((n) => (
+          <div key={n.id} className="col s12 m6 l4">
             <div className="card">
               {n.image && (
                 <div className="card-image">
@@ -40,6 +36,29 @@ function Popular() {
                     {n.title}
                   </a>
                 </span>
+              </div>
+              <div className="card-action">
+                <a
+                  href={generateShareLink("vk", n.link, n.title)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  VK
+                </a>
+                <a
+                  href={generateShareLink("telegram", n.link, n.title)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Telegram
+                </a>
+                <a
+                  href={generateShareLink("twitter", n.link, n.title)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Twitter
+                </a>
               </div>
             </div>
           </div>
