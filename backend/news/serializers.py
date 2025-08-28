@@ -4,7 +4,7 @@
 # Назначение: сериализаторы новостей и категорий.
 
 from rest_framework import serializers
-from .models import News, Category
+from .models import News, Category, Favorite
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -43,3 +43,13 @@ class NewsCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
         fields = ["title", "link", "image", "content", "category"]
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    """Сериализатор избранных новостей пользователя."""
+
+    news = NewsSerializer(read_only=True)
+
+    class Meta:
+        model = Favorite
+        fields = ["id", "news"]

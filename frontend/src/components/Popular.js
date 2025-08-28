@@ -8,6 +8,15 @@ import api from "../api";
 
 function Popular() {
   const [popular, setPopular] = useState([]);
+  const isLoggedIn = !!localStorage.getItem("access");
+
+  const addFavorite = async (id) => {
+    try {
+      await api.post(`news/favorites/${id}/`);
+    } catch (err) {
+      console.error("Ошибка добавления в избранное:", err);
+    }
+  };
 
   const loadPopular = useCallback(async () => {
     try {
@@ -40,6 +49,11 @@ function Popular() {
                     {n.title}
                   </a>
                 </span>
+                {isLoggedIn && (
+                  <button className="btn" onClick={() => addFavorite(n.id)}>
+                    В избранное
+                  </button>
+                )}
               </div>
             </div>
           </div>

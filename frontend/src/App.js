@@ -9,6 +9,7 @@ import Login from "./components/Login";
 import Profile from "./components/Profile";
 import AddNews from "./components/AddNews";
 import Moderation from "./components/Moderation";
+import Favorites from "./components/Favorites";
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/add" element={<AddNews />} />
         <Route path="/moderation" element={<Moderation />} />
+        <Route path="/favorites" element={<Favorites />} />
       </Routes>
     </Router>
   );

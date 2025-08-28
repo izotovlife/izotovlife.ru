@@ -42,6 +42,7 @@ function Navbar() {
             <>
               <li><Link to="/add">Добавить новость</Link></li>
               {isStaff && <li><Link to="/moderation">Модерация</Link></li>}
+              <li><Link to="/favorites">Избранное</Link></li>
               <li><Link to="/profile">Профиль</Link></li>
               <li><button onClick={handleLogout} className="btn-flat">Выход</button></li>
             </>

@@ -5,6 +5,15 @@ import api from "../api";
 function NewsList() {
   const [news, setNews] = useState([]);
   const [page, setPage] = useState(1);
+  const isLoggedIn = !!localStorage.getItem("access");
+
+  const addFavorite = async (id) => {
+    try {
+      await api.post(`news/favorites/${id}/`);
+    } catch (err) {
+      console.error("Ошибка добавления в избранное:", err);
+    }
+  };
 
   const loadNews = useCallback(async () => {
     try {
@@ -46,6 +55,11 @@ function NewsList() {
               </a>
             </span>
             <p>{n.content?.slice(0, 150)}...</p>
+            {isLoggedIn && (
+              <button className="btn" onClick={() => addFavorite(n.id)}>
+                В избранное
+              </button>
+            )}
           </div>
         </div>
       ))}

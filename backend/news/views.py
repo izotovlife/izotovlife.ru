@@ -5,8 +5,15 @@
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from .models import News, Category
-from .serializers import NewsSerializer, CategorySerializer, NewsCreateSerializer
+from django.shortcuts import get_object_or_404
+
+from .models import News, Category, Favorite
+from .serializers import (
+    NewsSerializer,
+    CategorySerializer,
+    NewsCreateSerializer,
+    FavoriteSerializer,
+)
 
 class NewsPagination(PageNumberPagination):
     page_size = 10
@@ -64,4 +71,34 @@ class NewsApproveView(generics.GenericAPIView):
         news.is_moderated = True
         news.save()
         return Response(self.get_serializer(news).data, status=status.HTTP_200_OK)
+
+
+class FavoriteListView(generics.ListAPIView):
+    """Список избранных новостей текущего пользователя."""
+
+    serializer_class = FavoriteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Favorite.objects.filter(user=self.request.user)
+
+
+class FavoriteView(generics.GenericAPIView):
+    """Добавление и удаление новости из избранного."""
+
+    serializer_class = FavoriteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, news_id):
+        news = get_object_or_404(News, id=news_id)
+        favorite, created = Favorite.objects.get_or_create(
+            user=request.user, news=news
+        )
+        serializer = self.get_serializer(favorite)
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(serializer.data, status=status_code)
+
+    def delete(self, request, news_id):
+        Favorite.objects.filter(user=request.user, news_id=news_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 

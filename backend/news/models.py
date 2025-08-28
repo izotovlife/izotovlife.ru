@@ -82,3 +82,21 @@ class News(models.Model):
 
     class Meta:
         db_table = "news_news"  # явное имя таблицы
+
+
+class Favorite(models.Model):
+    """Связь пользователя с понравившейся новостью."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites"
+    )
+    news = models.ForeignKey(
+        "News", on_delete=models.CASCADE, related_name="favorites"
+    )
+
+    class Meta:
+        unique_together = ("user", "news")
+        db_table = "news_favorite"
+
+    def __str__(self) -> str:
+        return f"{self.user} → {self.news}"

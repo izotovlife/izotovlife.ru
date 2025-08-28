@@ -10,6 +10,8 @@ from .views import (
     NewsCreateView,
     NewsModerationListView,
     NewsApproveView,
+    FavoriteListView,
+    FavoriteView,
 )
 
 urlpatterns = [
@@ -19,4 +21,6 @@ urlpatterns = [
     path("create/", NewsCreateView.as_view(), name="news_create"),
     path("moderation/", NewsModerationListView.as_view(), name="news_moderation"),
     path("moderation/<int:pk>/approve/", NewsApproveView.as_view(), name="news_approve"),
+    path("favorites/", FavoriteListView.as_view(), name="favorite_list"),
+    path("favorites/<int:news_id>/", FavoriteView.as_view(), name="favorite_detail"),
 ]
