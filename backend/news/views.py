@@ -4,6 +4,7 @@
 
 from datetime import timedelta
 
+from django.db.models import F
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
@@ -18,7 +19,11 @@ class NewsPagination(PageNumberPagination):
     max_page_size = 50
 
 class NewsListView(generics.ListAPIView):
-    queryset = News.objects.filter(is_moderated=True).order_by("-created_at")
+    queryset = (
+        News.objects.filter(is_moderated=True)
+        .select_related("author", "category")
+        .order_by("-created_at")
+    )
     serializer_class = NewsSerializer
     pagination_class = NewsPagination
     permission_classes = [permissions.AllowAny]
@@ -53,7 +58,11 @@ class CategoryUnsubscribeView(generics.GenericAPIView):
         return Response({"detail": "unsubscribed"}, status=status.HTTP_200_OK)
 
 class PopularNewsView(generics.ListAPIView):
-    queryset = News.objects.filter(is_moderated=True).order_by("-id")[:10]
+    queryset = (
+        News.objects.filter(is_moderated=True)
+        .select_related("author", "category")
+        .order_by("-id")[:10]
+    )
     serializer_class = NewsSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -69,6 +78,7 @@ class TopNewsView(generics.ListAPIView):
         start = now - delta
         return (
             News.objects.filter(is_moderated=True, created_at__gte=start)
+            .select_related("author", "category")
             .order_by("-views_count")[:10]
         )
 
@@ -90,7 +100,10 @@ class NewsCreateView(generics.CreateAPIView):
 class NewsModerationListView(generics.ListAPIView):
     """Список новостей, ожидающих модерации (доступно редакторам)."""
 
-    queryset = News.objects.filter(is_moderated=False)
+    queryset = (
+        News.objects.filter(is_moderated=False)
+        .select_related("author", "category")
+    )
     serializer_class = NewsSerializer
     permission_classes = [permissions.IsAdminUser]
 
@@ -107,4 +120,19 @@ class NewsApproveView(generics.GenericAPIView):
         news.is_moderated = True
         news.save()
         return Response(self.get_serializer(news).data, status=status.HTTP_200_OK)
+
+
+class NewsDetailView(generics.RetrieveAPIView):
+    """Детальный просмотр новости с безопасным подсчётом просмотров."""
+
+    queryset = News.objects.select_related("author", "category")
+    serializer_class = NewsSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        News.objects.filter(pk=instance.pk).update(views_count=F("views_count") + 1)
+        instance.refresh_from_db(fields=["views_count"])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
