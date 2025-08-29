@@ -25,6 +25,9 @@ class NewsSerializer(serializers.ModelSerializer):
     - author: компактный словарь (id, username) или null
     """
 
+    link = serializers.URLField(allow_null=True, required=False)
+    image = serializers.URLField(allow_null=True, required=False)
+    content = serializers.CharField(allow_null=True, required=False)
     category = CategorySerializer(read_only=True, allow_null=True)
     author = serializers.SerializerMethodField()
 
