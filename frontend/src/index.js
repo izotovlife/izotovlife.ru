@@ -6,6 +6,14 @@ import reportWebVitals from './reportWebVitals';
 import 'materialize-css/dist/css/materialize.min.css';
 import 'materialize-css/dist/js/materialize.min.js';
 
+// Materialize tries to query the current hash on load. When the hash is "#!"
+// (a common placeholder), this results in an invalid CSS selector and crashes
+// the app. Clear such hashbangs before rendering to keep initialization safe.
+if (window.location.hash === '#!') {
+  const { pathname, search } = window.location;
+  window.history.replaceState(null, '', pathname + search);
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
