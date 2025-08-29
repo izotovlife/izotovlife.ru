@@ -41,7 +41,7 @@ function Profile() {
       formData.append("photo", profile.photo);
     }
     try {
-      const res = await api.patch("accounts/profile/", formData, {
+      const res = await api.put("accounts/profile/", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setProfile(res.data);
