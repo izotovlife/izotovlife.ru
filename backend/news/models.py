@@ -33,7 +33,8 @@ class News(models.Model):
 
     # базовые поля
     title = models.CharField(max_length=500)
-    link = models.URLField(max_length=200)
+    # В БД уже есть NULL → разрешаем null/blank. Длину увеличим до 500 для длинных URL.
+    link = models.URLField(max_length=500, null=True, blank=True)
 
     # image_url в БД
     image = models.URLField(blank=True, null=True, db_column="image_url")
