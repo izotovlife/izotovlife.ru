@@ -3,6 +3,11 @@
 # Путь: backend/backend/settings.py
 # Описание: безопасные настройки для DEV/PROD, CORS/CSRF, JWT, Postgres, статика/медиа
 
+# backend/backend/settings.py
+# Назначение: базовые настройки Django-проекта IzotovLife
+# Путь: backend/backend/settings.py
+# Описание: безопасные настройки для DEV/PROD, CORS/CSRF, JWT, Postgres, статика/медиа
+
 import os
 from pathlib import Path
 from datetime import timedelta
@@ -149,5 +154,14 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     # Дополнительно по желанию:
     # SECURE_HSTS_SECONDS = 31536000
-    # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # SECURE_HSTS_INCLUDE_SUBДОМAINS = True
     # SECURE_HSTS_PRELOAD = True
+# backend/settings.py
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": BASE_DIR / "django_cache",  # создаст папку рядом с manage.py
+    }
+}
+BACKEND_BASE_URL = "http://127.0.0.1:8000"

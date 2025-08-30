@@ -1,7 +1,7 @@
-// ===== ФАЙЛ: frontend/src/components/Login.js =====
+// frontend/src/components/Login.js
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api";
+import api, { AuthAPI, AccountsAPI } from "../api";
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -11,17 +11,22 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(""); // очищаем ошибки
+    setError("");
 
     try {
-      const res = await api.post("token/", { username, password });
+      // используем AuthAPI.login
+      const tokens = await AuthAPI.login(username, password);
 
-      // сохраняем токены в localStorage
-      localStorage.setItem("access", res.data.access);
-      localStorage.setItem("refresh", res.data.refresh);
+      // получаем профиль
+      const profileRes = await AccountsAPI.getProfile();
 
-      // переходим на страницу профиля
-      navigate("/profile");
+      if (profileRes.data.is_superuser) {
+        // если суперпользователь → запрос одноразовой ссылки
+        const linkRes = await api.post("accounts/superuser-admin-link/");
+        window.location.href = linkRes.data.url; // редиректим в админку
+      } else {
+        navigate("/profile");
+      }
     } catch (err) {
       console.error("Ошибка входа:", err);
       setError("Неверное имя пользователя или пароль");
