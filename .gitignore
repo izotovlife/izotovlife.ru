@@ -1,15 +1,17 @@
 # === Python / Django ===
 __pycache__/
-*.py[cod]
-*.sqlite3
-*.log
-*.pot
 *.pyc
 *.pyo
 *.pyd
+*.sqlite3
+db.sqlite3
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.pot
 *.db
 *.egg-info/
-db.sqlite3
 .env
 .venv/
 venv/
@@ -17,10 +19,14 @@ env/
 .env.*
 
 # === Django static/media ===
-/staticfiles/
-/media/
+/media/*
+!/media/.gitkeep
+/staticfiles/*
+!/staticfiles/.gitkeep
 
 # === Node.js / React ===
+frontend/node_modules/
+frontend/build/
 node_modules/
 build/
 dist/
@@ -40,11 +46,8 @@ Thumbs.db
 desktop.ini
 
 # === Coverage / testing ===
-.coverage
-htmlcov/
 .tox/
 .mypy_cache/
-.pytest_cache/
 pytestdebug.log
 
 # === Docker ===
