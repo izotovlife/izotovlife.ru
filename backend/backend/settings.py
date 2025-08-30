@@ -3,11 +3,6 @@
 # Путь: backend/backend/settings.py
 # Описание: безопасные настройки для DEV/PROD, CORS/CSRF, JWT, Postgres, статика/медиа
 
-# backend/backend/settings.py
-# Назначение: базовые настройки Django-проекта IzotovLife
-# Путь: backend/backend/settings.py
-# Описание: безопасные настройки для DEV/PROD, CORS/CSRF, JWT, Postgres, статика/медиа
-
 import os
 from pathlib import Path
 from datetime import timedelta
