@@ -14,6 +14,7 @@ urlpatterns = [
     # API endpoints
     path("api/accounts/", include("accounts.urls")),
     path("api/news/", include("news.urls")),
+    path("api/aggregator/", include("aggregator.urls")),
 
     # JWT авторизация
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
