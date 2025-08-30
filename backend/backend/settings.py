@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "news",
     "accounts",
     "aggregator",
+    "backend",
 ]
 
 MIDDLEWARE = [
