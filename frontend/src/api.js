@@ -138,7 +138,18 @@ export const AuthAPI = {
 };
 
 export const NewsAPI = {
-  list: (page = 1) => api.get(`news/?page=${page}`),
-  popular: () => api.get("news/popular/"),
-  detail: (id) => api.get(`news/${id}/`),
+  // ВАЖНО: возвращаем МАССИВ новостей, распаковывая пагинированный ответ DRF
+  list: async (page = 1) => {
+    const { data } = await api.get(`news/?page=${page}`);
+    return Array.isArray(data) ? data : (data.results || []);
+  },
+  popular: async () => {
+    const { data } = await api.get("news/popular/");
+    // popular у тебя без пагинации — это массив
+    return Array.isArray(data) ? data : (data.results || []);
+  },
+  detail: async (id) => {
+    const { data } = await api.get(`news/${id}/`);
+    return data; // объект одной новости
+  },
 };
