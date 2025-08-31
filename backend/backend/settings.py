@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     "news",
     "accounts",
     "aggregator",
-    "backend",
+    "security.apps.SecurityConfig",
 ]
 
 MIDDLEWARE = [

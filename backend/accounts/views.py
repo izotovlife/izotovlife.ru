@@ -1,5 +1,6 @@
 # backend/accounts/views.py
 
+import secrets
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
@@ -9,7 +10,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from .serializers import UserSerializer, RegisterSerializer
-from backend.views_security import _make_token, _cache_set_token, TOKEN_TTL_SECONDS
+from security.models import AdminLink   # ✅ используем модель вместо utils
 
 User = get_user_model()
 
@@ -54,14 +55,14 @@ class SuperuserAdminLinkView(APIView):
         if not user.is_superuser:
             return Response({"error": "Not a superuser"}, status=403)
 
-        token = _make_token()
-        _cache_set_token(token, {
-            "user_id": user.id,
-            "created": timezone.now().isoformat(),
-        })
+        # генерируем токен и сохраняем в БД
+        token = secrets.token_urlsafe(32)
+        AdminLink.objects.create(token=token)
 
-        # Адрес бэкенда берём из settings или по умолчанию 127.0.0.1:8000
         backend_base = getattr(settings, "BACKEND_BASE_URL", "http://127.0.0.1:8000")
         url = f"{backend_base}/admin/{token}/"
 
-        return Response({"url": url, "expires_in": TOKEN_TTL_SECONDS})
+        return Response({
+            "url": url,
+            "expires_in": 600  # 10 минут (или возьми TTL из settings, если нужно)
+        })

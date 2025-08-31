@@ -14,8 +14,8 @@ function Login() {
     setError("");
 
     try {
-      // используем AuthAPI.login
-      const tokens = await AuthAPI.login(username, password);
+      // логинимся, токены сохранятся внутри AuthAPI.login
+      await AuthAPI.login(username, password);
 
       // получаем профиль
       const profileRes = await AccountsAPI.getProfile();

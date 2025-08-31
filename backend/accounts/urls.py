@@ -9,3 +9,4 @@ urlpatterns = [
     path("superuser-admin-link/", SuperuserAdminLinkView.as_view(), name="superuser_admin_link"),
 ]
 
+
