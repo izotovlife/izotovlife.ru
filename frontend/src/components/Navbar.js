@@ -1,54 +1,43 @@
 // frontend/src/components/Navbar.js
-// Путь: frontend/src/components/Navbar.js
-// Назначение: верхняя навигационная панель сайта.
+// Верхнее меню сайта: логотип слева, категории по центру, вход/регистрация справа
 
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import api from "../api";
+import { Link } from "react-router-dom";
 
 function Navbar() {
-  const navigate = useNavigate();
-  const [isStaff, setIsStaff] = useState(false);
-
-  const handleLogout = () => {
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    navigate("/login");
-  };
-
-  const isLoggedIn = !!localStorage.getItem("access");
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const res = await api.get("accounts/profile/");
-        setIsStaff(res.data.is_staff);
-      } catch {
-        setIsStaff(false);
-      }
-    }
-    if (isLoggedIn) {
-      fetchProfile();
-    }
-  }, [isLoggedIn]);
+    fetch("/api/news/categories/")
+      .then(res => res.json())
+      .then(data => setCategories(data))
+      .catch(() => setCategories([]));
+  }, []);
 
   return (
-    <nav className="navbar">
-      <div className="nav-wrapper">
-        <Link to="/" className="brand-logo">IzotovLife</Link>
-        <ul id="nav-mobile" className="right hide-on-med-and-down">
-          <li><Link to="/register">Регистрация</Link></li>
-          {isLoggedIn ? (
-            <>
-              <li><Link to="/add">Добавить новость</Link></li>
-              {isStaff && <li><Link to="/moderation">Модерация</Link></li>}
-              <li><Link to="/profile">Профиль</Link></li>
-              <li><button onClick={handleLogout} className="btn-flat">Выход</button></li>
-            </>
-          ) : (
-            <li><Link to="/login">Вход</Link></li>
-          )}
-        </ul>
+    <nav>
+      {/* Логотип */}
+      <Link to="/" className="font-bold text-xl hover:underline">
+        IzotovLife
+      </Link>
+
+      {/* Категории */}
+      <div className="nav-links">
+        {categories.map(cat => (
+          <Link
+            key={cat.id}
+            to={`/category/${cat.slug}`}
+            className="hover:underline"
+          >
+            {cat.name}
+          </Link>
+        ))}
+      </div>
+
+      {/* Вход / Регистрация */}
+      <div className="auth-links">
+        <Link to="/register" className="hover:underline">Регистрация</Link>
+        <Link to="/login" className="hover:underline">Вход</Link>
       </div>
     </nav>
   );

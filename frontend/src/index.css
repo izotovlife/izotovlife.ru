@@ -1,13 +1,220 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* frontend/src/index.css */
+/* Глобальные стили + цвета в стиле VK */
+
+/* --- Базовые переменные --- */
+:root {
+  --color-bg: #edeef0;          /* фон страницы (серый VK) */
+  --color-header: #4a76a8;      /* синий VK */
+  --color-text: #000000;        /* основной текст */
+  --color-text-light: #656565;  /* вторичный текст */
+  --color-card-bg: #ffffff;     /* карточки (новости, информеры) */
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* --- Сброс браузерных стилей --- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* --- Базовый шрифт --- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+/* --- Ссылки --- */
+a {
+  color: var(--color-header);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* --- Карточки (новости, информеры, блоки) --- */
+.card {
+  background: var(--color-card-bg);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 12px;
+}
+
+/* --- Заголовки --- */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--color-text);
+}
+
+/* --- Navbar --- */
+nav {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 24px !important;
+  background-color: var(--color-header) !important;
+  height: 56px;
+}
+
+nav a {
+  color: white !important;
+  font-size: 14px !important;
+}
+
+/* Линки внутри Navbar */
+nav .nav-links {
+  display: flex;
+  gap: 20px;
+}
+nav .auth-links {
+  display: flex;
+  gap: 16px;
+}
+
+/* --- Макет из 3 колонок --- */
+.layout {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+  width: 92%; /* шире контейнер */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Левая и правая колонка: компактные */
+.layout .left-column,
+.layout .right-column {
+  width: 17.5%;
+}
+
+/* Центральная колонка: основная */
+.layout .center-column {
+  flex: 1;
+  max-width: 65%;
+}
+
+/* --- Карточки справа (погода/валюта/новости) --- */
+.right-column .card {
+  padding: 12px;
+  font-size: 14px;
+  min-height: 100px;
+}
+.right-column h2 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+/* --- Популярные новости (центральный блок) --- */
+.popular-block {
+  margin-bottom: 24px;
+}
+
+/* Сетка: 2 карточки на строке */
+.popular-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* две колонки одинаковой ширины */
+  gap: 20px;
+}
+
+.popular-card {
+  background: var(--color-card-bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.popular-card:hover {
+  transform: translateY(-4px);
+}
+
+.popular-card img {
+  width: 100%;
+  height: 200px; /* оптимальная высота */
+  object-fit: cover;
+  display: block;
+}
+
+.popular-card h3 {
+  font-size: 18px;       /* заголовок удобного размера */
+  line-height: 1.4;
+  padding: 12px 16px;
+  margin: 0;
+  font-weight: 700;
+  min-height: 60px;      /* чтобы карточки были одинаковыми */
+}
+
+.popular-card h3 a {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.popular-card h3 a:hover {
+  color: var(--color-header);
+  text-decoration: underline;
+}
+
+/* Короткий анонс текста под заголовком */
+.popular-card p {
+  font-size: 14px;
+  color: var(--color-text-light);
+  padding: 0 16px 16px 16px;
+  margin: 0;
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;   /* ограничиваем 3 строками */
+  -webkit-box-orient: vertical;
+}
+
+/* Адаптив: на узких экранах по одной карточке */
+@media (max-width: 900px) {
+  .popular-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* --- Детальная новость (NewsDetail) --- */
+.news-detail {
+  background: var(--color-card-bg);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.news-detail h1 {
+  font-size: 28px;
+  line-height: 1.3;
+  margin-bottom: 16px;
+}
+
+.news-detail img {
+  max-width: 100%;   /* чтобы картинка не вылазила за колонку */
+  height: auto;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.news-detail-text {
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  color: var(--color-text);
+}
+
+.news-meta {
+  font-size: 14px;
+  color: var(--color-text-light);
+  margin-top: 12px;
 }
