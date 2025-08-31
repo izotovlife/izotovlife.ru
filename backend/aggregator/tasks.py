@@ -178,9 +178,10 @@ def fetch_feed_for_source(source: Source) -> int:
             defaults={
                 "title": title,
                 "content": summary,
-                "image": image_url,      # если в модели ImageField с upload_to — тут может быть URLField; оставляем как есть
+                "image": image_url,      # если в модели ImageField — может понадобиться локальное сохранение
                 "category": category,
-                "is_approved": True,
+                "source_type": "aggregator",   # ← опционально, если поле есть
+                "is_moderated": True,          # ← КЛЮЧЕВАЯ ПРАВКА
                 "is_popular": False,
                 "author": None,
             },
