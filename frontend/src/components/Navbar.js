@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FiMenu, FiX, FiSearch, FiArrowRight } from "react-icons/fi";
-import { motion, AnimatePresence } from "framer-motion";
+import { FiMenu, FiSearch, FiArrowRight } from "react-icons/fi";
 import logo from "../assets/logo.png";
 
 function Navbar() {
@@ -53,142 +52,69 @@ function Navbar() {
           ))}
         </div>
 
-        {/* Блок справа (поиск + меню, единственный) */}
-        <div className="nav-right">
-          {/* Desktop */}
-          <div className="hidden lg:flex items-center space-x-4">
-            <button
-              aria-label="Поиск"
-              onClick={() => setShowSearch(!showSearch)}
-              className="p-1 hover:text-yellow-300 transition"
-            >
-              <FiSearch size={22} />
-            </button>
-            <button
-              aria-label="Меню"
-              onClick={() => setOpenMenu(true)}
-              className="p-1 hover:text-yellow-300 transition"
-            >
-              <FiMenu size={24} />
-            </button>
-          </div>
-
-          {/* Mobile */}
-          <div className="flex lg:hidden items-center space-x-4">
-            <button
-              aria-label="Поиск"
-              onClick={() => setShowSearch(!showSearch)}
-              className="p-1 hover:text-yellow-300 transition"
-            >
-              <FiSearch size={20} />
-            </button>
-            <button
-              aria-label="Меню"
-              onClick={() => setOpenMenu(true)}
-              className="p-1 hover:text-yellow-300 transition"
-            >
-              <FiMenu size={22} />
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Поиск (overlay под шапкой) */}
-      <AnimatePresence>
-        {showSearch && (
-          <motion.div
-            initial={{ y: -40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -40, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute left-0 right-0 top-16 bg-white shadow-md z-40 px-4 py-3"
-          >
+        {/* Блок справа: поиск и меню */}
+        <div className="nav-right flex items-center gap-2 relative">
+          {showSearch ? (
             <form onSubmit={handleSearch} className="flex items-center">
               <input
                 type="text"
                 placeholder="Поиск..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-grow px-3 py-2 border rounded-l-md outline-none text-black"
+                className="w-40 px-2 py-1 rounded-l-md text-black outline-none"
                 autoFocus
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700"
+                className="px-2 py-1 bg-blue-700 text-white rounded-r-md"
               >
                 <FiArrowRight />
               </button>
             </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Drawer меню */}
-      <AnimatePresence>
-        {openMenu && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="fixed inset-0 bg-black z-40"
-              onClick={() => setOpenMenu(false)}
-            />
-
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "tween", duration: 0.3 }}
-              className="fixed top-0 right-0 h-full w-64 bg-white shadow-xl z-50 p-6 flex flex-col"
+          ) : (
+            <button
+              aria-label="Поиск"
+              onClick={() => {
+                setShowSearch(true);
+                setOpenMenu(false);
+              }}
+              className="p-1 hover:text-yellow-300 transition"
             >
-              <div className="flex justify-between items-center mb-6 border-b pb-3">
-                <span className="text-lg font-bold text-blue-600">Меню</span>
-                <button
-                  aria-label="Закрыть меню"
-                  onClick={() => setOpenMenu(false)}
-                  className="text-gray-600 hover:text-black"
-                >
-                  <FiX size={24} />
-                </button>
-              </div>
-
-              <div className="flex flex-col space-y-4 mb-6">
-                {categories.map((cat) => (
-                  <Link
-                    key={cat.id}
-                    to={`/category/${cat.slug}`}
-                    className="text-gray-800 font-medium hover:text-blue-600 transition"
-                    onClick={() => setOpenMenu(false)}
-                  >
-                    {cat.name}
-                  </Link>
-                ))}
-              </div>
-
-              <hr className="my-4" />
-
-              <div className="flex flex-col space-y-3">
+              <FiSearch size={22} />
+            </button>
+          )}
+          <div className="relative">
+            <button
+              aria-label="Меню"
+              onClick={() => {
+                setOpenMenu((prev) => !prev);
+                setShowSearch(false);
+              }}
+              className="p-1 hover:text-yellow-300 transition"
+            >
+              <FiMenu size={24} />
+            </button>
+            {openMenu && (
+              <div className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md z-50 flex flex-col">
                 <Link
                   to="/login"
-                  className="text-gray-700 hover:text-blue-600 transition"
+                  className="px-4 py-2 text-gray-700 hover:text-blue-600 transition"
                   onClick={() => setOpenMenu(false)}
                 >
                   Вход
                 </Link>
                 <Link
                   to="/register"
-                  className="text-gray-700 hover:text-blue-600 transition"
+                  className="px-4 py-2 text-gray-700 hover:text-blue-600 transition"
                   onClick={() => setOpenMenu(false)}
                 >
                   Регистрация
                 </Link>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            )}
+          </div>
+        </div>
+      </nav>
     </header>
   );
 }
