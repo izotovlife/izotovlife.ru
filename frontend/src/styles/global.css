@@ -1,0 +1,7 @@
+/* frontend/src/styles/global.css */
+/* Глобальные стили проекта. Цветовая схема "как в ВК". */
+:root {
+  --color-primary: #2787F5; /* основной цвет */
+  --color-secondary: #0077FF; /* акцент */
+  --color-bg: #f0f2f5; /* светлый фон */
+}
