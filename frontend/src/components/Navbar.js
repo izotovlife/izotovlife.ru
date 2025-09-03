@@ -53,43 +53,75 @@ function Navbar() {
           ))}
         </div>
 
-        {/* Блок справа: поиск и меню */}
+        {/* Блок справа (поиск + меню, единственный) */}
         <div className="nav-right">
-          {showSearch ? (
+          {/* Desktop */}
+          <div className="hidden lg:flex items-center space-x-4">
+            <button
+              aria-label="Поиск"
+              onClick={() => setShowSearch(!showSearch)}
+              className="p-1 hover:text-yellow-300 transition"
+            >
+              <FiSearch size={22} />
+            </button>
+            <button
+              aria-label="Меню"
+              onClick={() => setOpenMenu(true)}
+              className="p-1 hover:text-yellow-300 transition"
+            >
+              <FiMenu size={24} />
+            </button>
+          </div>
+
+          {/* Mobile */}
+          <div className="flex lg:hidden items-center space-x-4">
+            <button
+              aria-label="Поиск"
+              onClick={() => setShowSearch(!showSearch)}
+              className="p-1 hover:text-yellow-300 transition"
+            >
+              <FiSearch size={20} />
+            </button>
+            <button
+              aria-label="Меню"
+              onClick={() => setOpenMenu(true)}
+              className="p-1 hover:text-yellow-300 transition"
+            >
+              <FiMenu size={22} />
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Поиск (overlay под шапкой) */}
+      <AnimatePresence>
+        {showSearch && (
+          <motion.div
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -40, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="absolute left-0 right-0 top-16 bg-white shadow-md z-40 px-4 py-3"
+          >
             <form onSubmit={handleSearch} className="flex items-center">
               <input
                 type="text"
                 placeholder="Поиск..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-40 px-2 py-1 rounded-l-md text-black outline-none"
+                className="flex-grow px-3 py-2 border rounded-l-md outline-none text-black"
                 autoFocus
               />
               <button
                 type="submit"
-                className="px-2 py-1 bg-blue-700 text-white rounded-r-md"
+                className="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700"
               >
                 <FiArrowRight />
               </button>
             </form>
-          ) : (
-            <button
-              aria-label="Поиск"
-              onClick={() => setShowSearch(true)}
-              className="p-1 hover:text-yellow-300 transition"
-            >
-              <FiSearch size={22} />
-            </button>
-          )}
-          <button
-            aria-label="Меню"
-            onClick={() => setOpenMenu(true)}
-            className="p-1 hover:text-yellow-300 transition"
-          >
-            <FiMenu size={24} />
-          </button>
-        </div>
-      </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Drawer меню */}
       <AnimatePresence>
@@ -122,7 +154,22 @@ function Navbar() {
                 </button>
               </div>
 
-              <div className="flex flex-col space-y-3 mt-4">
+              <div className="flex flex-col space-y-4 mb-6">
+                {categories.map((cat) => (
+                  <Link
+                    key={cat.id}
+                    to={`/category/${cat.slug}`}
+                    className="text-gray-800 font-medium hover:text-blue-600 transition"
+                    onClick={() => setOpenMenu(false)}
+                  >
+                    {cat.name}
+                  </Link>
+                ))}
+              </div>
+
+              <hr className="my-4" />
+
+              <div className="flex flex-col space-y-3">
                 <Link
                   to="/login"
                   className="text-gray-700 hover:text-blue-600 transition"
