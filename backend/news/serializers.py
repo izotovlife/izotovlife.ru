@@ -1,7 +1,3 @@
-
-# Путь: backend/news/serializers.py
-# Назначение: сериализаторы новостей и категорий.
-
 # Путь: backend/news/serializers.py
 # Назначение: сериализаторы новостей и категорий. Безопасная сериализация
 #             при отсутствующих связях (author/category), поддержка создания.
@@ -47,11 +43,9 @@ class NewsSerializer(serializers.ModelSerializer):
         ]
 
     def get_author(self, obj):
-        # Аккуратно достаём автора; если связь отсутствует — возвращаем None.
         user = getattr(obj, "author", None)
         if not user:
             return None
-        # username может отсутствовать у кастомной модели — страхуемся через getattr
         return {
             "id": getattr(user, "id", None),
             "username": getattr(user, "username", None),
@@ -59,11 +53,7 @@ class NewsSerializer(serializers.ModelSerializer):
 
 
 class NewsCreateSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор создания новости автором.
-    - category принимаем как PK (id). Можно не передавать.
-    - author назначается во вьюхе по request.user (read_only здесь).
-    """
+    """Сериализатор создания новости автором."""
 
     category = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(),

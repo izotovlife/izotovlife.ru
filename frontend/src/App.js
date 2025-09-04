@@ -17,7 +17,7 @@ import Login from "./components/Login";
 import Profile from "./components/Profile";
 import AddNews from "./components/AddNews";
 import Moderation from "./components/Moderation";
-
+import SearchPage from "./pages/SearchPage";
 
 // Боковые блоки
 import SidebarNews from "./components/SidebarNews";
@@ -34,7 +34,6 @@ function App() {
       <Navbar />
       <main className="bg-[var(--color-bg)] min-h-screen">
         <div className="layout">
-
           {/* Левая колонка — короткие новости */}
           <aside className="left-column">
             <SidebarNews />
@@ -49,7 +48,9 @@ function App() {
                 element={
                   <>
                     <Popular />
-                    <h1 className="text-2xl font-bold mt-6 mb-4">Лента новостей</h1>
+                    <h1 className="text-2xl font-bold mt-6 mb-4">
+                      Лента новостей
+                    </h1>
                     <NewsList />
                   </>
                 }
@@ -74,6 +75,9 @@ function App() {
               {/* Добавление и модерация */}
               <Route path="/add" element={<AddNews />} />
               <Route path="/moderation" element={<Moderation />} />
+
+              {/* Поиск */}
+              <Route path="/search" element={<SearchPage />} />
             </Routes>
           </section>
 

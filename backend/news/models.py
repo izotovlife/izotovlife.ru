@@ -33,16 +33,9 @@ class News(models.Model):
 
     # базовые поля
     title = models.CharField(max_length=500)
-    # В БД уже есть NULL → разрешаем null/blank. Длину увеличим до 500 для длинных URL.
     link = models.URLField(max_length=500, null=True, blank=True)
-
-    # image_url в БД
     image = models.URLField(blank=True, null=True, db_column="image_url")
-
-    # description в БД
     content = models.TextField(blank=True, null=True, db_column="description")
-
-    # pub_date в БД
     created_at = models.DateTimeField(db_column="pub_date", auto_now_add=True)
 
     # категория (news_category)
@@ -55,14 +48,14 @@ class News(models.Model):
         related_name="news",
     )
 
-    # source в БД
+    # источник (rss/author)
     source_type = models.CharField(
         max_length=200,
         choices=SOURCE_CHOICES,
         db_column="source",
     )
 
-    # author_id (в БД сейчас FK на auth_user)
+    # автор (FK отключён на уровне ORM)
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -70,13 +63,11 @@ class News(models.Model):
         blank=True,
         db_column="author_id",
         related_name="news_items",
-        db_constraint=False,  # отключаем FK-проверку на уровне Django ORM
+        db_constraint=False,
     )
 
-    # счетчик просмотров
+    # мета-поля
     views_count = models.PositiveIntegerField(default=0)
-
-    # логические флаги
     is_approved = models.BooleanField(default=False)
     is_popular = models.BooleanField(default=False)
     is_moderated = models.BooleanField(default=False, db_index=True)
@@ -85,4 +76,4 @@ class News(models.Model):
         return self.title
 
     class Meta:
-        db_table = "news_news"  # явное имя таблицы
+        db_table = "news_news"

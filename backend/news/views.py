@@ -3,8 +3,7 @@
 # Назначение: API-представления для работы с новостями и категориями.
 
 from datetime import timedelta
-
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
@@ -13,10 +12,12 @@ from accounts.models import Subscription
 from .models import News, Category
 from .serializers import NewsSerializer, CategorySerializer, NewsCreateSerializer
 
+
 class NewsPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 50
+
 
 class NewsListView(generics.ListAPIView):
     queryset = (
@@ -27,6 +28,7 @@ class NewsListView(generics.ListAPIView):
     serializer_class = NewsSerializer
     pagination_class = NewsPagination
     permission_classes = [permissions.AllowAny]
+
 
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
@@ -57,6 +59,7 @@ class CategoryUnsubscribeView(generics.GenericAPIView):
         Subscription.objects.filter(user=request.user, category=category).delete()
         return Response({"detail": "unsubscribed"}, status=status.HTTP_200_OK)
 
+
 class PopularNewsView(generics.ListAPIView):
     queryset = (
         News.objects.filter(is_moderated=True)
@@ -81,6 +84,28 @@ class TopNewsView(generics.ListAPIView):
             .select_related("author", "category")
             .order_by("-views_count")[:10]
         )
+
+
+class NewsSearchView(generics.ListAPIView):
+    """Поиск по новостям (заголовок + текст + категория)."""
+
+    serializer_class = NewsSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = NewsPagination
+
+    def get_queryset(self):
+        query = self.request.query_params.get("q", "").strip()
+        category_slug = self.request.query_params.get("category", "").strip()
+
+        qs = News.objects.filter(is_moderated=True).select_related("author", "category")
+
+        if query:
+            qs = qs.filter(Q(title__icontains=query) | Q(content__icontains=query))
+
+        if category_slug:
+            qs = qs.filter(category__slug=category_slug)
+
+        return qs.order_by("-created_at")
 
 
 class NewsCreateView(generics.CreateAPIView):
@@ -135,4 +160,3 @@ class NewsDetailView(generics.RetrieveAPIView):
         instance.refresh_from_db(fields=["views_count"])
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
-

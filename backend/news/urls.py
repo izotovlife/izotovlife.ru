@@ -14,8 +14,9 @@ from .views import (
     NewsCreateView,
     NewsModerationListView,
     NewsApproveView,
+    NewsSearchView,   # новый импорт
 )
-from . import api_views   # импортируем наши функции-эндпоинты
+from . import api_views
 
 urlpatterns = [
     # Основные новости
@@ -30,9 +31,11 @@ urlpatterns = [
     path("moderation/", NewsModerationListView.as_view(), name="news_moderation"),
     path("moderation/<int:pk>/approve/", NewsApproveView.as_view(), name="news_approve"),
 
-    # Вспомогательные API для фронтенда
+    # 🔎 Новый эндпоинт поиска
+    path("search/", NewsSearchView.as_view(), name="news_search"),
+
+    # Вспомогательные API
     path("short/", api_views.short_news, name="short_news"),
     path("weather/", api_views.weather, name="weather"),
     path("currency/", api_views.currency, name="currency"),
-
 ]
