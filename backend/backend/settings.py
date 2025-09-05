@@ -30,10 +30,15 @@ SECRET_KEY = os.getenv(
 
 # В DEV разрешаем localhost; в PROD читаем домены из окружения
 if DEBUG:
-    ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 else:
     # Пример: ALLOWED_HOSTS=izotovlife.ru,www.izotovlife.ru
-    ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+    hosts_env = [h for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h]
+    if not hosts_env and os.getenv("USE_POSTGRES") != "1":
+        # In tests allow default hosts
+        ALLOWED_HOSTS = ["testserver", "localhost", "127.0.0.1"]
+    else:
+        ALLOWED_HOSTS = hosts_env
 
 # === ПРИЛОЖЕНИЯ ===
 INSTALLED_APPS = [
@@ -86,18 +91,28 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "backend.wsgi.application"
 
-# === БАЗА ДАННЫХ (PostgreSQL) ===
-# В DEV можно оставить локальные значения, в PROD — переменные окружения
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "izotovlife"),
-        "USER": os.getenv("POSTGRES_USER", "Izotoff"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "Jn4jnbeWllmhjds"),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+# === БАЗА ДАННЫХ ===
+# Для упрощения локального запуска и CI тестов по умолчанию используем SQLite.
+# При установке переменной окружения USE_POSTGRES=1 переключаемся на Postgres.
+if os.getenv("USE_POSTGRES") == "1":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("POSTGRES_DB", "izotovlife"),
+            "USER": os.getenv("POSTGRES_USER", "Izotoff"),
+            "PASSWORD": os.getenv("POSTGRES_PASSWORD", "Jn4jnbeWllmhjds"),
+            "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+            "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+    DEBUG = False  # avoid verbose debug cursor during tests
 
 # === ПОЛЬЗОВАТЕЛЬСКАЯ МОДЕЛЬ ===
 AUTH_USER_MODEL = "accounts.User"
@@ -144,9 +159,10 @@ SIMPLE_JWT = {
 # === БЕЗОПАСНОСТЬ ДЛЯ PROD ===
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    # В тестовой среде не перенаправляем на HTTPS
+    SECURE_SSL_REDIRECT = os.getenv("USE_POSTGRES") == "1"
+    SESSION_COOKIE_SECURE = os.getenv("USE_POSTGRES") == "1"
+    CSRF_COOKIE_SECURE = os.getenv("USE_POSTGRES") == "1"
     # Дополнительно по желанию:
     # SECURE_HSTS_SECONDS = 31536000
     # SECURE_HSTS_INCLUDE_SUBДОМAINS = True

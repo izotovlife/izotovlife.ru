@@ -1,7 +1,10 @@
 # backend/news/api_views.py
 # Эндпоинты для новостей, погоды и валют
 import os
-import requests
+try:  # pragma: no cover - optional dependency for external APIs
+    import requests  # type: ignore
+except Exception:  # pragma: no cover - tests run without requests installed
+    requests = None  # type: ignore
 from django.http import JsonResponse
 from .models import News
 
@@ -24,6 +27,9 @@ def weather(request):
 
     city = "Moscow"  # можно параметризовать
     url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={OPENWEATHER_API_KEY}&units=metric&lang=ru"
+    if requests is None:
+        return JsonResponse({"error": "requests library not installed"})
+
     try:
         r = requests.get(url, timeout=5)
         r.raise_for_status()
@@ -41,6 +47,9 @@ def weather(request):
 def currency(request):
     """Курсы валют (USD, EUR) через exchangerate.host"""
     url = "https://api.exchangerate.host/latest?base=RUB&symbols=USD,EUR"
+    if requests is None:
+        return JsonResponse({"error": "requests library not installed"})
+
     try:
         r = requests.get(url, timeout=5)
         r.raise_for_status()

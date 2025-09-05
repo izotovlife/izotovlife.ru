@@ -11,7 +11,10 @@
 import hashlib
 from email.utils import parsedate_to_datetime
 
-import feedparser
+try:  # pragma: no cover - simple optional dependency shim
+    import feedparser  # type: ignore
+except Exception:  # pragma: no cover - the library may be missing in tests
+    feedparser = None  # type: ignore
 from django.utils.text import slugify
 
 from .models import Source, Item
@@ -116,6 +119,9 @@ def fetch_feed_for_source(source: Source) -> int:
     Создаёт Item + сразу синхронизирует в News.
     Возвращает количество новых Item/News.
     """
+    if feedparser is None:  # pragma: no cover - handled in tests without feedparser
+        raise RuntimeError("feedparser library is required to fetch feeds")
+
     feed = feedparser.parse(source.url)
     added = 0
 
