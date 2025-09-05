@@ -11,7 +11,6 @@
 import hashlib
 from email.utils import parsedate_to_datetime
 
-import feedparser
 from django.utils.text import slugify
 
 from .models import Source, Item
@@ -116,18 +115,22 @@ def fetch_feed_for_source(source: Source) -> int:
     Создаёт Item + сразу синхронизирует в News.
     Возвращает количество новых Item/News.
     """
+    import feedparser
+
     feed = feedparser.parse(source.url)
     added = 0
 
     for entry in feed.entries:
         guid = getattr(entry, "id", "") or getattr(entry, "guid", "")
         link = getattr(entry, "link", "")
+        if not link:
+            continue
+
         title = (getattr(entry, "title", "") or "")[:500]
-        summary = getattr(entry, "summary", getattr(entry, "description", "")) or title
+        summary = getattr(entry, "summary", getattr(entry, "description", "")) or ""
         author = getattr(entry, "author", "") or ""
 
         category_name, subcategory_name = _extract_categories(entry)
-        image_url = _extract_image_url(entry)
         published_at = _extract_datetime(entry)
 
         # Контроль дубликатов для Item (внутренний хеш содержимого)
@@ -141,10 +144,8 @@ def fetch_feed_for_source(source: Source) -> int:
             defaults={
                 "guid": guid,
                 "title": title,
-                "summary": summary,
                 "author": author,
                 "category": f"{category_name}/{subcategory_name}" if subcategory_name else category_name,
-                "image_url": image_url,
                 "published_at": published_at,
                 "content_hash": content_hash,
             },
@@ -177,13 +178,10 @@ def fetch_feed_for_source(source: Source) -> int:
             link=link,
             defaults={
                 "title": title,
-                "content": summary,
-                "image": image_url,      # если в модели ImageField — может понадобиться локальное сохранение
                 "category": category,
-                "source_type": "aggregator",   # ← опционально, если поле есть
-                "is_moderated": True,          # ← КЛЮЧЕВАЯ ПРАВКА
+                "source_type": "rss",
+                "is_moderated": True,
                 "is_popular": False,
-                "author": None,
             },
         )
 
