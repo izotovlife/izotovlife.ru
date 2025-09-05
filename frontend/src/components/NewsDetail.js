@@ -28,7 +28,7 @@ function NewsDetail() {
       {news.image && (
         <img src={news.image} alt={news.title} className="news-detail-image" />
       )}
-      <p className="news-detail-text">{news.content}</p>
+      <p className="news-detail-text">{news.description || news.content}</p>
       {news.author && (
         <p className="news-meta">Автор: {news.author}, {news.date}</p>
       )}

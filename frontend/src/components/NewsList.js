@@ -45,7 +45,7 @@ function NewsList() {
                 {n.title}
               </a>
             </span>
-            <p>{n.content?.slice(0, 150)}...</p>
+            {n.description && <p>{n.description}</p>}
           </div>
           <div className="card-action">
             <a
