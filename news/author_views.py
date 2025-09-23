@@ -1,12 +1,10 @@
 # backend/news/author_views.py
-# Назначение: CRUD для авторских статей + ручки модерации для редактора.
+# Назначение: CRUD для авторских статей + действия автора (submit, resubmit).
 # Путь: backend/news/author_views.py
 
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.utils import timezone
-from django.shortcuts import get_object_or_404
 
 from .models import Article
 from .serializers import ArticleSerializer
@@ -24,7 +22,7 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
 class AuthorArticleViewSet(viewsets.ModelViewSet):
     """
     /api/news/author/articles/
-    CRUD для авторов.
+    CRUD для авторов + отправка на модерацию.
     """
     serializer_class = ArticleSerializer
     permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
@@ -38,45 +36,26 @@ class AuthorArticleViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        """Первичная отправка статьи на модерацию (только черновики)."""
+        article = self.get_object()
+        if article.status != Article.Status.DRAFT:
+            return Response({"detail": "Отправлять можно только черновики"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-# ====== Редакторские ручки ======
+        article.status = Article.Status.PENDING
+        article.save()
+        return Response(ArticleSerializer(article).data, status=status.HTTP_200_OK)
 
-@api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
-def moderation_queue(request):
-    """
-    /api/news/author/moderation-queue/
-    Возвращает статьи со статусом PENDING (на модерации).
-    """
-    if not (request.user.is_superuser or getattr(request.user, "is_editor", lambda: False)()):
-        return Response({"detail": "Нет доступа"}, status=status.HTTP_403_FORBIDDEN)
+    @action(detail=True, methods=["post"])
+    def resubmit(self, request, pk=None):
+        """Повторная отправка после доработки (только для NEEDS_REVISION)."""
+        article = self.get_object()
+        if article.status != Article.Status.NEEDS_REVISION:
+            return Response({"detail": "Повторно отправить можно только статьи на доработке"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-    items = Article.objects.filter(status=Article.Status.PENDING).order_by("created_at")
-    return Response(ArticleSerializer(items, many=True).data)
-
-
-@api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated])
-def review_article(request, pk, action):
-    """
-    /api/news/author/review/<id>/<action>/
-    Редактор публикует статью или отправляет на доработку.
-    """
-    if not (request.user.is_superuser or getattr(request.user, "is_editor", lambda: False)()):
-        return Response({"detail": "Нет доступа"}, status=status.HTTP_403_FORBIDDEN)
-
-    article = get_object_or_404(Article, pk=pk)
-
-    notes = request.data.get("notes", "")
-    article.editor_notes = notes
-
-    if action == "publish":
-        article.status = Article.Status.PUBLISHED
-        article.published_at = timezone.now()
-    elif action == "revise":
-        article.status = Article.Status.NEEDS_REVISION
-    else:
-        return Response({"detail": "Неизвестное действие"}, status=status.HTTP_400_BAD_REQUEST)
-
-    article.save()
-    return Response(ArticleSerializer(article).data)
+        article.status = Article.Status.PENDING
+        article.save()
+        return Response(ArticleSerializer(article).data, status=status.HTTP_200_OK)

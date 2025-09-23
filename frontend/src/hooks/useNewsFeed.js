@@ -16,7 +16,7 @@ function uniqById(items) {
   });
 }
 
-export default function useNewsFeed({ category }) {
+export default function useNewsFeed({ category } = {}) {
   const [textOnly, setTextOnly] = useState([]);     // только без фото
   const [withImages, setWithImages] = useState([]); // только с фото
   const [page, setPage] = useState(1);
@@ -31,7 +31,10 @@ export default function useNewsFeed({ category }) {
       setLoading(true);
 
       try {
-        const data = await fetchFeed({ page: p, category, page_size: 30 });
+        const params = { page: p, page_size: 30 };
+        if (category) params.category = category;
+
+        const data = await fetchFeed(params);
         const results = data.results || [];
 
         const newText = results.filter((n) => !n.image);

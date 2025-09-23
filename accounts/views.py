@@ -43,13 +43,15 @@ class MeView(APIView):
             "is_superuser": u.is_superuser,
         }
 
-        # Новый redirect_url
+        # ✅ правильная проверка с учётом enums
         if u.is_superuser:
             data["redirect_url"] = "/admin/"
-        elif getattr(u, "role", None) == "author":
-            data["redirect_url"] = "/author"
-        elif getattr(u, "role", None) == "editor":
-            data["redirect_url"] = "/editor"
+        elif getattr(u, "role", None) == User.Roles.AUTHOR:
+            data["redirect_url"] = "/author/dashboard"
+        elif getattr(u, "role", None) == User.Roles.EDITOR:
+            data["redirect_url"] = "/editor/dashboard"
+        elif getattr(u, "role", None) == User.Roles.ADMIN:
+            data["redirect_url"] = "/admin/"
         else:
             data["redirect_url"] = "/"
 

@@ -17,18 +17,16 @@ export default function NewsCardText({ item }) {
           <Link to={`/article/${item.slug}`} className="hover:underline">
             {title}
           </Link>
-        ) : item.type === "rss" && item.source_url ? (
-          <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+        ) : item.type === "rss" && item.id ? (
+          <Link to={`/rss/${item.id}`} className="hover:underline">
             {title}
-          </a>
+          </Link>
         ) : (
           title
         )}
       </h3>
 
-      {preview && (
-        <p className="text-sm text-gray-300">{preview}</p>
-      )}
+      {preview && <p className="text-sm text-gray-300">{preview}</p>}
     </article>
   );
 }

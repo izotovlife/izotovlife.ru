@@ -20,7 +20,6 @@ export default function CategoriesBar() {
       .catch(console.error);
   }, []);
 
-  // Покажем первые 10, остальные спрячем в "ещё"
   const visible = categories.slice(0, 10);
   const hidden = categories.slice(10);
 
@@ -66,34 +65,34 @@ export default function CategoriesBar() {
 
       <style>{`
         .categories-bar {
-          background: #fff;
-          border-bottom: 1px solid #ddd;
+          background: #111; /* ✅ фон как у шапки */
+          border-bottom: 1px solid #333;
           position: relative;
           z-index: 5;
         }
         .wrap-wrapper {
           display: flex;
-          justify-content: center; /* ✅ центрируем */
+          justify-content: center;
           gap: 12px;
           padding: 8px 16px;
           flex-wrap: nowrap;
         }
         .cat-link {
           font-size: 14px;
-          color: #444;
+          color: #ccc; /* ✅ белый текст */
           text-decoration: none;
           padding: 6px 10px;
           border-radius: 4px;
-          transition: color 0.2s, border-bottom 0.2s;
+          transition: color 0.2s;
           position: relative;
           white-space: nowrap;
         }
         .cat-link:hover {
-          color: #0077ff;
+          color: #1a73e8;
         }
         .cat-link.active {
           font-weight: bold;
-          color: #0077ff;
+          color: #1a73e8;
         }
         .cat-link.active::after {
           content: "";
@@ -102,7 +101,7 @@ export default function CategoriesBar() {
           right: 0;
           bottom: -2px;
           height: 2px;
-          background: #0077ff;
+          background: #1a73e8;
           border-radius: 2px;
         }
         .more {
@@ -113,21 +112,22 @@ export default function CategoriesBar() {
           border: none;
           font-size: 18px;
           cursor: pointer;
-          color: #444;
+          color: #ccc; /* ✅ белая кнопка */
           padding: 0 6px;
         }
         .dropdown {
           position: absolute;
           top: 100%;
           right: 0;
-          background: #fff;
-          border: 1px solid #ddd;
+          background: #111; /* ✅ тёмный фон */
+          border: 1px solid #333;
           border-radius: 6px;
           padding: 8px;
           min-width: 200px;
           display: flex;
           flex-direction: column;
           gap: 6px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
       `}</style>
     </div>

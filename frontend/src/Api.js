@@ -1,11 +1,11 @@
 // frontend/src/Api.js
-// Назначение: Axios-инстанс и функции API (устойчивый логин, работа с новостями, категории, авторские статьи, модерация редактора, статические страницы).
+// Назначение: Axios-инстанс и функции API (логин, работа с новостями, категории, авторские и редакторские статьи, админ URL).
 // Путь: frontend/src/Api.js
 
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: "http://localhost:8000/api",
 });
 
 // ===== JWT управление =====
@@ -35,180 +35,127 @@ api.interceptors.response.use(
   }
 );
 
-// ——— ВСПОМОГАТЕЛЬНОЕ: достать токен
-function extractAccessToken(data) {
-  if (!data) return null;
-  return (
-    data.access ||
-    data.access_token ||
-    data.token ||
-    (data.tokens && (data.tokens.access || data.tokens.access_token)) ||
-    null
-  );
+// ===== АУТЕНТИФИКАЦИЯ =====
+export async function login(username, password) {
+  const r = await api.post("/auth/login/", { username, password });
+  const token = r.data?.access; // backend должен вернуть {access: "..."}
+  if (token) setToken(token);
+  return r.data;
 }
 
-/** ===== Новая функция для уникального admin URL ===== */
-export async function adminSessionLogin() {
-  // Бэкенд ждёт только авторизацию по JWT → передавать username/password не нужно
-  const { data } = await api.post("/api/security/admin-session-login/");
-  return data;
-}
-
-/** ===== УСТОЙЧИВЫЙ ЛОГИН ===== */
-export async function login(loginField, password) {
-  delete api.defaults.headers.common["Authorization"];
-
-  async function doLogin(body) {
-    const { data } = await api.post("/api/auth/login/", body, {
-      headers: { Authorization: undefined },
-    });
-    const tok = extractAccessToken(data);
-    if (!tok) throw new Error("Не найден токен в ответе сервера");
-    setToken(tok);
-    return data;
-  }
-
-  try {
-    return await doLogin({ username: loginField, password });
-  } catch (err1) {
-    if (err1?.response?.status && err1.response.status !== 400) {
-      throw err1;
-    }
-    try {
-      return await doLogin({ email: loginField, password });
-    } catch (err2) {
-      const resp = err2?.response || err1?.response;
-      const msg =
-        resp?.data?.detail ||
-        resp?.data?.non_field_errors?.[0] ||
-        JSON.stringify(resp?.data) ||
-        "Ошибка входа";
-      const e = new Error(msg);
-      e.response = resp;
-      throw e;
-    }
-  }
-}
-
-// Текущий пользователь
 export async function whoami() {
-  const { data } = await api.get("/api/auth/me/");
-  return data;
+  const r = await api.get("/auth/me/");
+  return r.data;
 }
 
-/** ===== Публичные API ===== */
+export async function adminSessionLogin() {
+  const r = await api.post("/security/admin-session-login/");
+  return r.data;
+}
+
+// ===== КАТЕГОРИИ =====
+export async function fetchCategories() {
+  const r = await api.get("/news/categories/");
+  return r.data;
+}
+
+export async function fetchCategoryNews(slug, page = 1) {
+  const r = await api.get(`/news/category/${slug}/`, { params: { page } });
+  return r.data;
+}
+
+// ===== ЛЕНТА =====
 export async function fetchFeed(params = {}) {
-  const { data } = await api.get("/api/news/feed/", {
-    params,
-    headers: { Authorization: undefined },
-  });
-  return data;
+  const r = await api.get("/news/feed/", { params });
+  return r.data;
 }
 
-export async function searchAll(q, params = {}) {
-  const { data } = await api.get("/api/news/search/", {
-    params: { q, ...params },
-    headers: { Authorization: undefined },
+export async function fetchFeedText(page = 1) {
+  const r = await api.get("/news/feed/text/", { params: { page } });
+  return r.data;
+}
+
+export async function fetchFeedImages(page = 1) {
+  const r = await api.get("/news/feed/images/", { params: { page } });
+  return r.data;
+}
+
+// ===== ПОИСК =====
+export async function searchAll(query, { limit = 30, offset = 0 } = {}) {
+  const r = await api.get("/news/search/", {
+    params: { q: query, limit, offset },
   });
+  const data = r.data;
+
+  // Унифицируем формат ответа, чтобы фронт всегда ожидал { items, total }
   return {
-    items: data.results || [],
-    total: data.count || 0,
-    next: data.next,
-    previous: data.previous,
+    items: data.results || data.items || (Array.isArray(data) ? data : []),
+    total: data.count ?? data.total ?? (Array.isArray(data) ? data.length : 0),
   };
 }
 
-export async function fetchCategories() {
-  const { data } = await api.get("/api/news/categories/", {
-    headers: { Authorization: undefined },
-  });
-  return data;
-}
-
+// ===== СТАТЬИ =====
 export async function fetchArticle(slug) {
-  const { data } = await api.get(`/api/news/article/${slug}/`, {
-    headers: { Authorization: undefined },
-  });
-  return data;
+  const r = await api.get(`/news/article/${slug}/`);
+  return r.data;
 }
 
 export async function fetchImportedNews(id) {
-  const { data } = await api.get(`/api/news/rss/${id}/`, {
-    headers: { Authorization: undefined },
-  });
-  return data;
+  const r = await api.get(`/news/rss/${id}/`);
+  return r.data;
 }
 
-export async function fetchCategoryNews(slug, params = {}) {
-  const { data } = await api.get(`/api/news/category/${slug}/`, {
-    params,
-    headers: { Authorization: undefined },
-  });
-  return data;
-}
-
-/** ===== Приватные (автор) ===== */
+// ===== АВТОР =====
 export async function fetchMyArticles() {
-  const { data } = await api.get("/api/news/author/articles/");
-  return data;
+  const r = await api.get("/news/author/articles/");
+  return r.data;
 }
 
-// ✅ Вернули для совместимости с AuthorDashboard
 export async function fetchMyByStatus(status) {
-  const { data } = await api.get("/api/news/author/articles/", {
-    params: { status },
-  });
-  return data;
+  const r = await api.get("/news/author/articles/", { params: { status } });
+  return r.data;
 }
 
-export async function createArticle(article) {
-  const { data } = await api.post("/api/news/author/articles/", article);
-  return data;
+export async function createArticle(data) {
+  const r = await api.post("/news/author/articles/", data);
+  return r.data;
 }
 
-export async function updateArticle(id, article) {
-  const { data } = await api.put(`/api/news/author/articles/${id}/`, article);
-  return data;
+export async function updateArticle(id, data) {
+  const r = await api.put(`/news/author/articles/${id}/`, data);
+  return r.data;
 }
 
 export async function submitArticle(id) {
-  const { data } = await api.post(`/api/news/author/articles/${id}/submit/`);
-  return data;
+  const r = await api.post(`/news/author/articles/${id}/submit/`);
+  return r.data;
 }
 
-/** ===== Редактор ===== */
+export async function resubmitArticle(id) {
+  const r = await api.post(`/news/author/articles/${id}/resubmit/`);
+  return r.data;
+}
+
+// ===== РЕДАКТОР =====
 export async function fetchModerationQueue() {
-  const { data } = await api.get("/api/news/author/moderation-queue/");
-  return data;
+  const r = await api.get("/news/editor/moderation-queue/");
+  return r.data;
 }
 
-export async function reviewArticle(id, action, notes) {
-  const { data } = await api.post(`/api/news/author/review/${id}/${action}/`, {
-    notes,
-  });
-  return data;
+export async function reviewArticle(id, action, editor_notes = "") {
+  const r = await api.post(`/news/editor/review/${id}/${action}/`, { editor_notes });
+  return r.data;
 }
 
-/** ===== Статические страницы (футер) ===== */
+// ===== СТАТИЧЕСКИЕ СТРАНИЦЫ =====
 export async function fetchPages() {
-  const { data } = await api.get("/api/pages/", {
-    headers: { Authorization: undefined },
-  });
-
-  if (Array.isArray(data)) {
-    return data;
-  }
-  if (data && data.results) {
-    return data.results;
-  }
-  return [];
+  const r = await api.get("/pages/");
+  return r.data;
 }
 
 export async function fetchPage(slug) {
-  const { data } = await api.get(`/api/pages/${slug}/`, {
-    headers: { Authorization: undefined },
-  });
-  return data;
+  const r = await api.get(`/pages/${slug}/`);
+  return r.data;
 }
 
 export default api;

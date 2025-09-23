@@ -1,196 +1,177 @@
 // frontend/src/pages/AuthorDashboard.js
-// Назначение: Личный кабинет автора — вкладки по статусам, редактор статей с загрузкой изображений.
+// Назначение: Кабинет автора. Управление статьями (создание, список, статусы).
 // Путь: frontend/src/pages/AuthorDashboard.js
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  fetchMyByStatus,
+  fetchMyArticles,
   createArticle,
   submitArticle,
 } from "../Api";
-
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
-// УСТАНОВИ эти пакеты: npm i react-quill quill-image-uploader
-import Quill from "quill";
-import ImageUploader from "quill-image-uploader";
-Quill.register("modules/imageUploader", ImageUploader);
-
 export default function AuthorDashboard() {
-  const [tab, setTab] = useState("DRAFT");
   const [articles, setArticles] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
 
-  // поля новой статьи
+  // поля формы
   const [title, setTitle] = useState("");
-  const [coverImage, setCoverImage] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState(""); // ⚡ здесь будет HTML
+  const [categories, setCategories] = useState("");
+  const [image, setImage] = useState("");
+
+  const loadArticles = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchMyArticles();
+      setArticles(data);
+    } catch (err) {
+      setError("Ошибка загрузки статей");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setLoading(true);
-    fetchMyByStatus(tab)
-      .then(setArticles)
-      .finally(() => setLoading(false));
-  }, [tab]);
+    loadArticles();
+  }, []);
 
-  async function handleCreate() {
-    if (!title.trim() || !content.trim()) {
-      alert("Заполните заголовок и текст");
-      return;
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        title,
+        content, // уже HTML
+        categories: categories.split(",").map((c) => c.trim()),
+        image,
+      };
+      const newArticle = await createArticle(payload);
+      setArticles((prev) => [newArticle, ...prev]);
+      setShowForm(false);
+      setTitle("");
+      setContent("");
+      setCategories("");
+      setImage("");
+    } catch (err) {
+      console.error("Ошибка при создании:", err);
+      setError("Не удалось создать статью");
     }
-    const article = await createArticle({
-      title,
-      content,
-      cover_image: coverImage,
-    });
-    alert("Черновик создан!");
-    setTitle("");
-    setContent("");
-    setCoverImage("");
-    setTab("DRAFT");
-    setArticles((prev) => [article, ...prev]);
-  }
+  };
 
-  async function handleSubmit(id) {
-    await submitArticle(id);
-    alert("Отправлено на модерацию");
-    setArticles((prev) => prev.filter((x) => x.id !== id));
-  }
-
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline", "strike"],
-      [{ list: "ordered" }, { list: "bullet" }],
-      ["link", "image"],
-      ["clean"],
-    ],
-    imageUploader: {
-      upload: async (file) => {
-        const formData = new FormData();
-        formData.append("image", file);
-        const resp = await fetch("http://localhost:8000/api/news/upload-image/", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access") || ""}`,
-          },
-          body: formData,
-        });
-        const data = await resp.json();
-        if (!resp.ok) {
-          throw new Error(data?.error || "Ошибка загрузки изображения");
-        }
-        return data.url; // Quill вставит <img src="...">
-      },
-    },
+  const handleSubmitArticle = async (id) => {
+    try {
+      const res = await submitArticle(id);
+      setArticles((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: res.status } : a))
+      );
+    } catch (err) {
+      console.error("Ошибка при отправке:", err);
+      setError("Не удалось отправить статью на модерацию");
+    }
   };
 
   return (
-    <div className="author-dashboard">
-      <h1>Кабинет автора</h1>
+    <div className="max-w-5xl mx-auto py-6 text-white">
+      <h1 className="text-2xl font-bold mb-4">Кабинет автора</h1>
 
-      {/* Вкладки */}
-      <div className="tabs">
-        {["DRAFT", "PENDING", "PUBLISHED", "NEEDS_REVISION"].map((status) => (
+      {error && <div className="text-red-400 mb-4">{error}</div>}
+
+      <button
+        onClick={() => setShowForm(!showForm)}
+        className="mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+      >
+        {showForm ? "Отмена" : "Создать статью"}
+      </button>
+
+      {showForm && (
+        <form onSubmit={handleCreate} className="space-y-3 mb-6">
+          <input
+            type="text"
+            placeholder="Заголовок"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full p-2 rounded bg-[var(--bg-card)] border border-gray-600"
+            required
+          />
+
+          {/* 🔥 WYSIWYG редактор */}
+          <ReactQuill
+            theme="snow"
+            value={content}
+            onChange={setContent}
+            className="bg-white text-black rounded"
+            placeholder="Введите текст статьи..."
+            modules={{
+              toolbar: [
+                [{ header: [1, 2, 3, false] }],
+                ["bold", "italic", "underline", "strike"],
+                [{ list: "ordered" }, { list: "bullet" }],
+                ["link", "image"],
+                ["clean"],
+              ],
+            }}
+          />
+
+          <input
+            type="text"
+            placeholder="Категории (через запятую)"
+            value={categories}
+            onChange={(e) => setCategories(e.target.value)}
+            className="w-full p-2 rounded bg-[var(--bg-card)] border border-gray-600"
+          />
+
+          <input
+            type="text"
+            placeholder="Ссылка на картинку (опционально)"
+            value={image}
+            onChange={(e) => setImage(e.target.value)}
+            className="w-full p-2 rounded bg-[var(--bg-card)] border border-gray-600"
+          />
+
           <button
-            key={status}
-            className={tab === status ? "active" : ""}
-            onClick={() => setTab(status)}
+            type="submit"
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded"
           >
-            {status === "DRAFT" && "Черновики"}
-            {status === "PENDING" && "На модерации"}
-            {status === "PUBLISHED" && "Опубликованные"}
-            {status === "NEEDS_REVISION" && "На доработке"}
+            Сохранить
           </button>
-        ))}
-      </div>
-
-      {/* Список статей */}
-      {loading ? (
-        <div>Загрузка…</div>
-      ) : (
-        <div className="articles-list">
-          {articles.length === 0 && <p>Нет статей</p>}
-          {articles.map((a) => (
-            <div key={a.id} className="card">
-              <h3>{a.title}</h3>
-              {a.cover_image && (
-                <img
-                  src={a.cover_image}
-                  alt=""
-                  style={{ maxWidth: "200px", marginTop: "8px" }}
-                />
-              )}
-              <div
-                style={{ marginTop: 8 }}
-                dangerouslySetInnerHTML={{ __html: a.content }}
-              />
-              {tab === "DRAFT" && (
-                <button onClick={() => handleSubmit(a.id)} style={{ marginTop: 8 }}>
-                  Отправить на модерацию
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+        </form>
       )}
 
-      {/* Редактор новой статьи */}
-      <div className="editor-section card">
-        <h2>Новая статья</h2>
-        <input
-          type="text"
-          placeholder="Заголовок"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{ width: "100%", marginBottom: "8px" }}
-        />
-        <input
-          type="text"
-          placeholder="Ссылка на обложку"
-          value={coverImage}
-          onChange={(e) => setCoverImage(e.target.value)}
-          style={{ width: "100%", marginBottom: "8px" }}
-        />
-        <ReactQuill
-          value={content}
-          onChange={setContent}
-          modules={modules}
-          theme="snow"
-        />
-        <button className="button primary" onClick={handleCreate} style={{ marginTop: 10 }}>
-          Сохранить черновик
-        </button>
-      </div>
-
-      <style>{`
-        .tabs {
-          display: flex;
-          gap: 8px;
-          margin: 12px 0;
-        }
-        .tabs button {
-          padding: 6px 12px;
-          border: 1px solid #ddd;
-          background: #f9f9f9;
-          cursor: pointer;
-        }
-        .tabs button.active {
-          background: #0077ff;
-          color: white;
-        }
-        .card {
-          border: 1px solid #ddd;
-          border-radius: 6px;
-          padding: 12px;
-          margin: 12px 0;
-          background: white;
-        }
-        .editor-section {
-          margin-top: 20px;
-        }
-      `}</style>
+      {loading ? (
+        <div>Загрузка...</div>
+      ) : articles.length === 0 ? (
+        <div>У вас пока нет статей.</div>
+      ) : (
+        <ul className="space-y-3">
+          {articles.map((a) => (
+            <li
+              key={a.id}
+              className="p-3 border border-gray-700 rounded bg-[var(--bg-card)]"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold">{a.title}</h3>
+                  <p className="text-sm text-gray-400">
+                    Статус: {a.status || "DRAFT"}
+                  </p>
+                </div>
+                {a.status === "DRAFT" && (
+                  <button
+                    onClick={() => handleSubmitArticle(a.id)}
+                    className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded"
+                  >
+                    Отправить на модерацию
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

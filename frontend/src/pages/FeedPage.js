@@ -1,13 +1,11 @@
 // frontend/src/pages/FeedPage.js
-// Главная лента: слева новости с фото (по 2 в ряд), справа текстовые.
-// Использует хук useNewsFeed с ленивой подгрузкой.
-// Заголовки убраны, добавлено визуальное разделение.
+// Главная лента: универсальные карточки (NewsCard).
+// Слева — новости с фото (2 в ряд), справа — текстовые.
 // Путь: frontend/src/pages/FeedPage.js
 
 import React from "react";
 import useNewsFeed from "../hooks/useNewsFeed";
-import NewsCardText from "../components/NewsCardText";
-import NewsCardImage from "../components/NewsCardImage";
+import NewsCard from "../components/NewsCard";
 
 export default function FeedPage() {
   const { textOnly, withImages, loading, hasMore, loaderRef } = useNewsFeed({});
@@ -30,7 +28,7 @@ export default function FeedPage() {
         <section className="lg:col-span-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {withImages.map((n, idx) => (
-              <NewsCardImage key={makeKey(n, idx)} item={n} />
+              <NewsCard key={makeKey(n, idx)} item={n} />
             ))}
           </div>
 
@@ -44,10 +42,10 @@ export default function FeedPage() {
           )}
         </section>
 
-        {/* Правая колонка: текстовые новости, отделены границей */}
+        {/* Правая колонка: текстовые новости */}
         <section className="space-y-3 border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-6 lg:pt-0 lg:pl-6">
           {textOnly.map((n, idx) => (
-            <NewsCardText key={makeKey(n, idx)} item={n} />
+            <NewsCard key={makeKey(n, idx)} item={n} />
           ))}
 
           {!textOnly.length && !loading && (

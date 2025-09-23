@@ -1,7 +1,3 @@
-# backend/news/urls.py
-# Назначение: Маршруты новостей: лента, категории, поиск, статьи, авторский CRUD, RSS-деталь, загрузка изображений.
-# Путь: backend/news/urls.py
-
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -14,8 +10,9 @@ from .views import (
     SearchView,
     ImportedNewsDetailView,
 )
-from .author_views import AuthorArticleViewSet, moderation_queue, review_article
-from .views_upload import upload_image   # ✅ добавляем загрузку изображений
+from .author_views import AuthorArticleViewSet
+from .views_upload import upload_image
+from . import editor_views   # ✅ редакторские ручки теперь тут
 
 router = DefaultRouter()
 router.register(r'author/articles', AuthorArticleViewSet, basename='author-articles')
@@ -40,10 +37,10 @@ urlpatterns = [
     path("rss/<int:id>/", ImportedNewsDetailView.as_view(), name="rss_detail"),
 
     # редактор
-    path("author/moderation-queue/", moderation_queue, name="moderation_queue"),
-    path("author/review/<int:pk>/<str:action>/", review_article, name="review_article"),
+    path("editor/moderation-queue/", editor_views.ModerationQueueView.as_view(), name="editor_moderation_queue"),
+    path("editor/review/<int:pk>/<str:action>/", editor_views.ReviewArticleView.as_view(), name="editor_review_article"),
 
-    # загрузка изображений из редактора Quill
+    # загрузка изображений
     path("upload-image/", upload_image, name="upload_image"),
 
     # авторские статьи
