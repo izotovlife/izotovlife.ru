@@ -1,34 +1,73 @@
+# ========================
 # Python cache
+# ========================
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.so
 
+# ========================
 # Virtual environments
+# ========================
 .venv/
 venv/
 ENV/
 env/
+*.egg-info/
+.eggs/
 
+# ========================
 # Django stuff
+# ========================
 db.sqlite3
+db.sqlite3-journal
 media/
 staticfiles/
+static_root/
 logs/
+local_settings.py
 
+# ========================
 # Environment variables
+# ========================
 .env
+*.env
 
+# ========================
 # VSCode / PyCharm / IDE
+# ========================
 .idea/
 .vscode/
+*.swp
+*.swo
+*.bak
+*.tmp
 
+# ========================
 # Frontend build & deps
+# ========================
 node_modules/
 build/
 dist/
-*.log
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
 
+# ========================
 # OS junk
+# ========================
 .DS_Store
 Thumbs.db
+
+# ========================
+# Testing / coverage
+# ========================
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+.mypy_cache/
