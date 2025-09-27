@@ -1,5 +1,5 @@
 # backend/news/author_views.py
-# Назначение: CRUD для авторских статей + действия автора (submit, resubmit).
+# Назначение: CRUD для авторских статей + действия автора (submit, resubmit, withdraw).
 # Путь: backend/news/author_views.py
 
 from rest_framework import viewsets, permissions, status
@@ -11,18 +11,24 @@ from .serializers import ArticleSerializer
 
 
 class IsAuthorOrReadOnly(permissions.BasePermission):
-    """Автор может редактировать свои статьи, редактор/админ — читать всё."""
+    """Автор может редактировать свои статьи, если они не ушли в модерацию или не опубликованы."""
 
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return obj.author == request.user or request.user.is_staff
+
+        # Только автор может менять статью
+        if obj.author != request.user and not request.user.is_staff:
+            return False
+
+        # Разрешаем редактировать только черновики и статьи на доработке
+        return obj.status in [Article.Status.DRAFT, Article.Status.NEEDS_REVISION]
 
 
 class AuthorArticleViewSet(viewsets.ModelViewSet):
     """
     /api/news/author/articles/
-    CRUD для авторов + отправка на модерацию.
+    CRUD для авторов + отправка/отзыв на модерацию.
     """
     serializer_class = ArticleSerializer
     permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
@@ -57,5 +63,17 @@ class AuthorArticleViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
 
         article.status = Article.Status.PENDING
+        article.save()
+        return Response(ArticleSerializer(article).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def withdraw(self, request, pk=None):
+        """Автор может отозвать статью, пока она на модерации."""
+        article = self.get_object()
+        if article.status != Article.Status.PENDING:
+            return Response({"detail": "Отозвать можно только статьи на модерации"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        article.status = Article.Status.DRAFT
         article.save()
         return Response(ArticleSerializer(article).data, status=status.HTTP_200_OK)

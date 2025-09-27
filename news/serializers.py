@@ -1,104 +1,80 @@
 # backend/news/serializers.py
 # Назначение: Сериализаторы для категорий, статей, импортированных новостей и общий сериализатор News.
-# Добавлено: блок автора в ArticleSerializer (id, username, photo, bio).
-# Путь: backend/news/serializers.py
+# Улучшено:
+#   - В ArticleSerializer summary теперь виртуальное поле (первые 200 символов content).
+#   - В ImportedNewsSerializer добавлено поле source (NewsSourceSerializer) для вывода логотипа и имени источника.
+#   - Добавлен CategoryMiniSerializer для мини-версии категории.
+#   - Подробные комментарии для понимания структуры данных.
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Article, Category, ImportedNews
+from .models import Article, Category, ImportedNews, NewsSource
 
 User = get_user_model()
 
-
 class CategorySerializer(serializers.ModelSerializer):
-    news_count = serializers.IntegerField(read_only=True)  # количество новостей в категории
+    """Полная версия категории для вывода в статьях и админке."""
+    news_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Category
         fields = ["id", "name", "slug", "news_count"]
 
-
-class AuthorMiniSerializer(serializers.ModelSerializer):
-    """Краткая информация об авторе для статьи."""
+class CategoryMiniSerializer(serializers.ModelSerializer):
+    """Мини-версия категории (например, для шапки) — без ID и счётчиков."""
     class Meta:
-        model = User
-        fields = ["id", "username", "photo", "bio"]
-
+        model = Category
+        fields = ["name", "slug"]
 
 class ArticleSerializer(serializers.ModelSerializer):
-    categories = CategorySerializer(many=True, read_only=True)
-    is_archived = serializers.SerializerMethodField()
-    source_url = serializers.SerializerMethodField()
-    author = AuthorMiniSerializer(read_only=True)
+    """
+    Сериализатор авторских статей.
+    Поле summary создаётся динамически из content (первые 200 символов),
+    что позволяет показывать краткий анонс.
+    """
+    summary = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
         fields = [
-            "id",
-            "title",
-            "slug",
-            "content",
-            "status",
-            "editor_notes",
-            "cover_image",
-            "categories",
-            "created_at",
-            "published_at",
-            "archived_at",
-            "is_archived",
-            "source_url",
-            "author",
+            "id", "title", "slug", "content", "summary",
+            "created_at", "published_at", "cover_image", "type",
         ]
 
-    def get_is_archived(self, obj):
-        return obj.archived_at is not None
+    def get_summary(self, obj):
+        # Если есть содержимое, берём первые 200 символов, иначе возвращаем пустую строку
+        return (obj.content[:200] + "...") if obj.content else ""
 
-    def get_source_url(self, obj):
-        return getattr(obj, "source_url", None)
-
-
-class ArticleCreateUpdateSerializer(serializers.ModelSerializer):
+class NewsSourceSerializer(serializers.ModelSerializer):
+    """Сериализатор источника (РИА, ТАСС и т.п.)."""
     class Meta:
-        model = Article
-        fields = ["title", "slug", "content", "cover_image", "status"]
-
+        model = NewsSource
+        fields = ["id", "name", "slug", "logo"]
 
 class ImportedNewsSerializer(serializers.ModelSerializer):
-    category = CategorySerializer()
-    is_archived = serializers.SerializerMethodField()
-    source_url = serializers.SerializerMethodField()
+    """
+    Сериализатор импортированных новостей (RSS).
+    Добавлено поле source: сериализация связанного объекта NewsSource
+    для отображения логотипа и названия источника на фронтенде.
+    """
+    source = NewsSourceSerializer(read_only=True)
 
     class Meta:
         model = ImportedNews
         fields = [
-            "id",
-            "source",
-            "link",
-            "title",
-            "summary",
-            "image",
-            "published_at",
-            "category",
-            "archived_at",
-            "is_archived",
-            "source_url",
+            "id", "title", "summary", "image", "link",
+            "published_at", "category", "created_at", "feed_url",
+            "type", "source",
         ]
-
-    def get_is_archived(self, obj):
-        return obj.archived_at is not None
-
-    def get_source_url(self, obj):
-        return obj.link  # RSS = читать в источнике
-
 
 class NewsSerializer(serializers.Serializer):
     """
-    Универсальный сериализатор для Article и ImportedNews.
+    Полиморфный сериализатор для объединённой ленты.
+    В зависимости от типа instance возвращает данные из соответствующего сериализатора.
     """
-
-    def to_representation(self, obj):
-        if isinstance(obj, Article):
-            return ArticleSerializer(obj, context=self.context).data
-        elif isinstance(obj, ImportedNews):
-            return ImportedNewsSerializer(obj, context=self.context).data
-        return super().to_representation(obj)
+    def to_representation(self, instance):
+        if isinstance(instance, Article):
+            return ArticleSerializer(instance, context=self.context).data
+        elif isinstance(instance, ImportedNews):
+            return ImportedNewsSerializer(instance, context=self.context).data
+        return super().to_representation(instance)

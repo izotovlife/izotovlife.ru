@@ -1,16 +1,15 @@
-// frontend/src/pages/PasswordResetPage.js
-// Назначение: Форма для запроса восстановления пароля (отправка email).
-// Путь: frontend/src/pages/PasswordResetPage.js
+// frontend/src/pages/ResetPasswordPage.js
+// Назначение: Форма для запроса восстановления пароля.
+// Пользователь вводит email, и на него отправляется ссылка для сброса.
+// Путь: frontend/src/pages/ResetPasswordPage.js
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../Api";
+import { requestPasswordReset } from "../Api";
 
-export default function PasswordResetPage() {
+export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,14 +17,11 @@ export default function PasswordResetPage() {
     setMessage(null);
 
     try {
-      await api.post("/api/auth/password-reset/", { email });
-      setMessage("Проверьте почту — мы отправили ссылку для восстановления.");
-      setTimeout(() => navigate("/login"), 4000);
+      await requestPasswordReset({ email });
+      setMessage("Если такой email зарегистрирован, на него отправлено письмо со ссылкой для сброса пароля.");
     } catch (err) {
-      setError(
-        err?.response?.data?.detail ||
-          "Ошибка при отправке письма. Попробуйте снова."
-      );
+      console.error("Ошибка сброса пароля:", err);
+      setError(err?.response?.data?.detail || "Ошибка при отправке письма.");
     }
   };
 
@@ -35,18 +31,21 @@ export default function PasswordResetPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           type="email"
-          placeholder="Ваш Email"
+          placeholder="Ваш email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-2 rounded border border-gray-600 bg-transparent text-white"
+          required
         />
+
         {error && <div className="text-red-400 text-sm">{error}</div>}
         {message && <div className="text-green-400 text-sm">{message}</div>}
+
         <button
           type="submit"
           className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded text-white font-bold"
         >
-          Отправить ссылку
+          Отправить письмо
         </button>
       </form>
     </div>

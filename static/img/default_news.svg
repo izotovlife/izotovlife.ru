@@ -1,0 +1,28 @@
+<!-- backend/static/img/default_news.svg -->
+<!-- Заглушка "газета" в векторе. Универсальное изображение для новостей без картинки. -->
+<!-- Исправлено: вместо квадрата теперь пропорции 16:9 (ширина больше высоты). -->
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 288">
+  <!-- Фон -->
+  <rect width="512" height="288" fill="#ffffff"></rect>
+
+  <!-- Контур газеты -->
+  <rect x="40" y="40" width="432" height="208" rx="16" ry="16" fill="none" stroke="#333333" stroke-width="12"></rect>
+  
+  <!-- Заголовок NEWS -->
+  <text x="60" y="90" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#333333">
+    NEWS
+  </text>
+  
+  <!-- Прямоугольник как картинка внутри газеты -->
+  <rect x="60" y="110" width="100" height="80" fill="#cccccc" stroke="#333333" stroke-width="8"></rect>
+  
+  <!-- Линии текста справа -->
+  <line x1="180" y1="120" x2="400" y2="120" stroke="#333333" stroke-width="8"></line>
+  <line x1="180" y1="150" x2="420" y2="150" stroke="#333333" stroke-width="8"></line>
+  <line x1="180" y1="180" x2="360" y2="180" stroke="#333333" stroke-width="8"></line>
+  
+  <!-- Нижние полосы текста -->
+  <line x1="60" y1="210" x2="420" y2="210" stroke="#333333" stroke-width="8"></line>
+  <line x1="60" y1="240" x2="420" y2="240" stroke="#333333" stroke-width="8"></line>
+</svg>

@@ -31,9 +31,9 @@ def admin_entrypoint(request, token):
         token_obj.delete()
         return HttpResponseForbidden("Токен устарел")
 
-    # Логиним суперпользователя
+    # Логиним суперпользователя (явно указываем backend!)
     user = token_obj.user
-    login(request, user)
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
 
     # Помечаем токен как использованный
     token_obj.used_at = timezone.now()
@@ -42,6 +42,10 @@ def admin_entrypoint(request, token):
     # Отмечаем сессию, что можно в админку
     request.session[settings.SECURITY_ADMIN_SESSION_KEY] = True
 
+    # ✅ В DEV редиректим на http://localhost:8000/admin/
+    if settings.DEBUG:
+        return redirect("http://localhost:8000/admin/")
+    # ✅ В PROD — относительный путь
     return redirect("/admin/")
 
 
@@ -61,6 +65,12 @@ def admin_session_login(request):
     token = secrets.token_urlsafe(32)
     AdminSessionToken.objects.create(user=user, token=token)
 
-    # Абсолютный URL для редиректа
-    base = settings.SITE_DOMAIN.rstrip("/")
-    return JsonResponse({"admin_url": f"{base}/api/security/admin-entry/{token}/"})
+    # ✅ DEBUG → полный URL (чтобы фронт открыл бэкенд)
+    # ✅ PROD → домен из SITE_DOMAIN
+    if settings.DEBUG:
+        admin_url = f"http://localhost:8000/api/security/admin-entry/{token}/"
+    else:
+        base = settings.SITE_DOMAIN.rstrip("/")
+        admin_url = f"{base}/api/security/admin-entry/{token}/"
+
+    return JsonResponse({"admin_url": admin_url})

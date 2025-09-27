@@ -1,15 +1,17 @@
 // frontend/src/hooks/useNewsFeed.js
 // Назначение: бесконечная подгрузка новостей из общей ленты (/feed/).
-// Оптимизация: грузим сразу 2 страницы при старте, убираем дубликаты по id/slug.
+// Оптимизация: грузим сразу 2 страницы при старте (параллельно),
+// убираем дубликаты по type+id/slug/source_url, подставляем дефолтный type = "rss"
 // Путь: frontend/src/hooks/useNewsFeed.js
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { fetchFeed } from "../Api";
 
+// Уникализация по type+id/slug/source_url
 function uniqById(items) {
   const seen = new Set();
   return items.filter((it) => {
-    const key = it.id || it.slug || it.source_url;
+    const key = `${it.type || "rss"}-${it.id || it.slug || it.source_url}`;
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -35,7 +37,10 @@ export default function useNewsFeed({ category } = {}) {
         if (category) params.category = category;
 
         const data = await fetchFeed(params);
-        const results = data.results || [];
+        const results = (data.results || []).map((n) => ({
+          ...n,
+          type: n.type || "rss", // ⚡ дефолтное значение
+        }));
 
         const newText = results.filter((n) => !n.image);
         const newImages = results.filter((n) => n.image);
@@ -43,7 +48,8 @@ export default function useNewsFeed({ category } = {}) {
         setTextOnly((prev) => uniqById([...prev, ...newText]));
         setWithImages((prev) => uniqById([...prev, ...newImages]));
 
-        if (data.has_next === false || !data.next) {
+        // DRF: next=null → больше страниц нет
+        if (!data.next) {
           setHasMore(false);
         }
       } catch (err) {
@@ -55,17 +61,20 @@ export default function useNewsFeed({ category } = {}) {
     [page, category, hasMore, loading]
   );
 
-  // первая загрузка — сразу 2 страницы
+  // первая загрузка — сразу 2 страницы (параллельно)
   useEffect(() => {
     (async () => {
-      await loadNews(1);
-      await loadNews(2);
-      setPage(2);
+      try {
+        await Promise.all([loadNews(1), loadNews(2)]);
+        setPage(2);
+      } catch (err) {
+        console.error("Ошибка начальной загрузки:", err);
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
-  // грузим при изменении page
+  // грузим при изменении page (начиная с 3-й)
   useEffect(() => {
     if (page > 2) loadNews(page);
   }, [page, loadNews]);

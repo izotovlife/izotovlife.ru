@@ -1,8 +1,8 @@
-# backend/news/management/commands/fix_category_slugs.py
-# Назначение: Пересоздание slug у категорий, перевод кириллицы в латиницу (transliteration).
-# Гарантируется уникальность slug, старые некорректные slug перезаписываются.
+# Назначение: фиксит slug у категорий, переписывая их транслитерацией (латиница).
+# Пример: "Россия" → "rossiia", "Мир" → "mir".
 # Путь: backend/news/management/commands/fix_category_slugs.py
 
+import re
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 from unidecode import unidecode
@@ -10,27 +10,36 @@ from news.models import Category
 
 
 class Command(BaseCommand):
-    help = "Пересоздание slug у категорий (транслитерация в латиницу, исправление дублей)."
+    help = "Переписывает slug категорий транслитерацией (латиница)"
 
     def handle(self, *args, **options):
-        seen = set()
-        updated = 0
+        updated, skipped = 0, 0
 
-        for c in Category.objects.all():
-            base = slugify(unidecode(c.name))  # кириллица → латиница
-            if not base:
-                base = "category"
-            slug = base
-            counter = 1
-            while slug in seen or Category.objects.exclude(id=c.id).filter(slug=slug).exists():
-                counter += 1
-                slug = f"{base}-{counter}"
+        for cat in Category.objects.all():
+            if (not cat.slug or
+                cat.slug.startswith("bez-kategorii") or
+                re.search(r"[а-яА-Я]", cat.slug)):
 
-            old_slug = c.slug
-            c.slug = slug
-            c.save()
-            seen.add(slug)
-            updated += 1
-            self.stdout.write(self.style.SUCCESS(f"{c.name}: {old_slug} → {c.slug}"))
+                # Транслитерация в латиницу + slugify
+                translit_name = unidecode(cat.name)
+                new_slug = slugify(translit_name) or "category"
+                base_slug = new_slug
+                counter = 1
 
-        self.stdout.write(self.style.SUCCESS(f"✅ Пересоздано slug у {updated} категорий"))
+                while Category.objects.exclude(id=cat.id).filter(slug=new_slug).exists():
+                    new_slug = f"{base_slug}-{counter}"
+                    counter += 1
+
+                self.stdout.write(
+                    self.style.SUCCESS(f"{cat.name}: {cat.slug} → {new_slug}")
+                )
+
+                cat.slug = new_slug
+                cat.save(update_fields=["slug"])
+                updated += 1
+            else:
+                skipped += 1
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Готово! Обновлено: {updated}, пропущено: {skipped}")
+        )

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675">
+  <!-- Фон -->
+  <rect width="1200" height="675" fill="#111827"></rect>
+
+  <!-- Рамка -->
+  <rect x="40" y="40" width="1120" height="595" rx="25" ry="25" fill="#1f2937" stroke="#9ca3af" stroke-width="10"></rect>
+
+  <!-- Блок фото -->
+  <rect x="70" y="100" width="350" height="250" fill="#374151" stroke="#9ca3af" stroke-width="6"></rect>
+  <text x="245" y="240" font-size="80" text-anchor="middle" fill="#9ca3af" font-family="Arial, sans-serif">📰</text>
+
+  <!-- Заголовки -->
+  <line x1="450" y1="120" x2="1120" y2="120" stroke="#e5e7eb" stroke-width="18"></line>
+  <line x1="450" y1="180" x2="1120" y2="180" stroke="#6b7280" stroke-width="12"></line>
+  <line x1="450" y1="230" x2="1120" y2="230" stroke="#6b7280" stroke-width="12"></line>
+
+  <!-- Нижние блоки -->
+  <line x1="70" y1="400" x2="1120" y2="400" stroke="#6b7280" stroke-width="16"></line>
+  <line x1="70" y1="460" x2="1120" y2="460" stroke="#6b7280" stroke-width="16"></line>
+  <line x1="70" y1="520" x2="1120" y2="520" stroke="#6b7280" stroke-width="16"></line>
+</svg>

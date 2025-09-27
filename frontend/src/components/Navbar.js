@@ -1,10 +1,11 @@
 // frontend/src/components/Navbar.js
-// Назначение: фиксированная шапка (логотип, гамбургер меню, поиск, переключатель версий слабовидящих через иконку + горячие клавиши Alt+0..2)
+// Назначение: фиксированная шапка (логотип, меню, поиск, переключатель слабовидящих,
+// блок с курсами валют и погодой по геолокации пользователя)
 // Путь: frontend/src/components/Navbar.js
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { whoami, setToken } from "../Api";
+import { whoami, setToken, goToAdmin } from "../Api";
 import { FaSearch, FaBars, FaTimes } from "react-icons/fa";
 import { ReactComponent as Logo } from "../assets/izotovlife_logo.svg";
 
@@ -14,12 +15,23 @@ export default function Navbar() {
   const [query, setQuery] = useState("");
   const [user, setUser] = useState(null);
 
-  // ✅ убрали black-режим
+  // валюты
+  const [rates, setRates] = useState({});
+  const [selectedCurrency, setSelectedCurrency] = useState("USD+EUR");
+
+  // геолокация + погода
+  const [coords, setCoords] = useState(null);
+  const [weather, setWeather] = useState(null);
+
+  // темы для слабовидящих
   const themes = ["normal", "low-vision-yellow", "low-vision-white"];
-  const [theme, setTheme] = useState(localStorage.getItem("visionTheme") || "normal");
+  const [theme, setTheme] = useState(
+    localStorage.getItem("visionTheme") || "normal"
+  );
 
   const navigate = useNavigate();
 
+  // Загружаем пользователя
   useEffect(() => {
     async function loadUser() {
       try {
@@ -41,22 +53,22 @@ export default function Navbar() {
     localStorage.setItem("visionTheme", theme);
   }, [theme]);
 
-  // переключение по клику
+  // переключение темы
   const cycleTheme = () => {
     const idx = themes.indexOf(theme);
     const next = themes[(idx + 1) % themes.length];
     setTheme(next);
   };
 
-  // иконка в зависимости от темы
+  // иконка темы
   const getThemeIcon = () => {
     switch (theme) {
       case "low-vision-yellow":
-        return "🟨"; // жёлтый на чёрном
+        return "🟨";
       case "low-vision-white":
-        return "🌑"; // белый на чёрном
+        return "🌑";
       default:
-        return "🔆"; // обычная версия
+        return "🔆";
     }
   };
 
@@ -83,18 +95,111 @@ export default function Navbar() {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
+  // выход
   const handleLogout = () => {
     setToken(null);
     setUser(null);
     navigate("/");
   };
 
+  // поиск
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (query.trim()) {
       navigate(`/search?q=${encodeURIComponent(query.trim())}`);
       setShowSearch(false);
       setQuery("");
+    }
+  };
+
+  // Личный кабинет
+  const handlePersonalCabinet = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    if (user.is_superuser) {
+      await goToAdmin();
+    } else if (user.role === "EDITOR") {
+      navigate("/editor-dashboard");
+    } else {
+      navigate("/author-dashboard");
+    }
+    setMenuOpen(false);
+  };
+
+  // Загружаем курсы валют
+  useEffect(() => {
+    async function fetchRates() {
+      try {
+        const resp = await fetch("https://open.er-api.com/v6/latest/RUB");
+        const data = await resp.json();
+        if (data && data.rates) {
+          setRates(data.rates);
+        }
+      } catch (e) {
+        console.error("Ошибка загрузки курсов валют", e);
+      }
+    }
+    fetchRates();
+  }, []);
+
+  // Определяем координаты
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCoords({
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+          });
+        },
+        (err) => console.warn("Ошибка геолокации", err),
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
+
+  // Загружаем погоду
+  useEffect(() => {
+    if (!coords) return;
+
+    async function fetchWeather() {
+      try {
+        const resp = await fetch(
+          `https://wttr.in/${coords.lat},${coords.lon}?format=j1&lang=ru`
+        );
+        const data = await resp.json();
+
+        const cond = data.current_condition[0];
+        const pressureMmHg = Math.round(cond.pressure * 0.75006); // перевод hPa → мм рт. ст.
+
+        setWeather({
+          area: data.nearest_area[0].areaName[0].value, // город на русском
+          temp: cond.temp_C,
+          desc: cond.lang_ru[0].value, // описание на русском
+          pressure: pressureMmHg,
+        });
+      } catch (e) {
+        console.error("Ошибка погоды", e);
+      }
+    }
+
+    fetchWeather();
+  }, [coords]);
+
+  // Рендерим валюты
+  const renderCurrency = () => {
+    if (!rates || Object.keys(rates).length === 0) return "Загрузка...";
+
+    if (selectedCurrency === "USD+EUR") {
+      const usd = (1 / rates["USD"]).toFixed(2);
+      const eur = (1 / rates["EUR"]).toFixed(2);
+      return `USD: ${usd} ₽ | EUR: ${eur} ₽`;
+    } else {
+      const val = selectedCurrency;
+      const rate = rates[val] ? (1 / rates[val]).toFixed(2) : "...";
+      return `${val}: ${rate} ₽`;
     }
   };
 
@@ -110,22 +215,64 @@ export default function Navbar() {
     >
       <div
         style={{
-          maxWidth: 1200,
+          maxWidth: 1400,
           margin: "0 auto",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           padding: "10px 16px",
+          flexWrap: "wrap",
+          gap: "10px",
         }}
       >
-        {/* ✅ ЛОГОТИП */}
+        {/* ЛОГОТИП */}
         <Link to="/" style={{ display: "flex", alignItems: "center" }}>
           <Logo className="h-12 w-auto text-white transition-transform duration-200 hover:scale-105 hover:text-blue-500" />
         </Link>
 
-        {/* ✅ ИКОНКИ справа */}
+        {/* Блок с курсами валют и погодой */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "20px",
+            color: "white",
+            fontSize: "14px",
+          }}
+        >
+          <div>{renderCurrency()}</div>
+          <select
+            value={selectedCurrency}
+            onChange={(e) => setSelectedCurrency(e.target.value)}
+            style={{
+              background: "#111",
+              color: "white",
+              border: "1px solid #444",
+              borderRadius: 4,
+              padding: "2px 6px",
+            }}
+          >
+            <option value="USD+EUR">Доллар + Евро</option>
+            <option value="USD">Доллар</option>
+            <option value="EUR">Евро</option>
+            <option value="GBP">Фунт</option>
+            <option value="CNY">Юань</option>
+            <option value="JPY">Йена</option>
+          </select>
+
+          {/* Погода */}
+          {weather && (
+            <div style={{ whiteSpace: "nowrap" }}>
+              <strong>{weather.area}</strong>: {weather.temp}°C, {weather.desc},
+              Давл. {weather.pressure} мм рт. ст.
+            </div>
+          )}
+        </div>
+
+        {/* ИКОНКИ справа */}
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          {/* 🔥 Переключатель версий иконкой */}
           <button
             onClick={cycleTheme}
             title="Переключить версию (Alt+0..2)"
@@ -227,7 +374,7 @@ export default function Navbar() {
         />
       )}
 
-      {/* Меню (Сайдбар) */}
+      {/* Сайдбар */}
       <div
         className="sidebar-menu"
         style={{
@@ -244,9 +391,10 @@ export default function Navbar() {
           gap: 12,
           transform: menuOpen ? "translateX(0)" : "translateX(100%)",
           transition: "transform 0.3s ease",
+          background: "#111",
+          color: "#fff",
         }}
       >
-        {/* Крестик */}
         <button
           onClick={() => setMenuOpen(false)}
           className="close-btn text-xl cursor-pointer transition-transform duration-200 hover:scale-110 mb-3"
@@ -254,12 +402,28 @@ export default function Navbar() {
           <FaTimes />
         </button>
 
-        <Link to="/" onClick={() => setMenuOpen(false)}>Главная</Link>
-        <Link to="/categories" onClick={() => setMenuOpen(false)}>Категории</Link>
+        <Link to="/" onClick={() => setMenuOpen(false)}>
+          Главная
+        </Link>
+        <Link to="/categories" onClick={() => setMenuOpen(false)}>
+          Категории
+        </Link>
 
         {user ? (
           <>
-            <Link to="/author" onClick={() => setMenuOpen(false)}>Личный кабинет</Link>
+            <button
+              onClick={handlePersonalCabinet}
+              style={{
+                background: "none",
+                border: "none",
+                textAlign: "left",
+                cursor: "pointer",
+                padding: 0,
+                color: "inherit",
+              }}
+            >
+              Личный кабинет
+            </button>
             <button
               onClick={handleLogout}
               style={{
@@ -268,13 +432,16 @@ export default function Navbar() {
                 textAlign: "left",
                 cursor: "pointer",
                 padding: 0,
+                color: "inherit",
               }}
             >
               Выйти
             </button>
           </>
         ) : (
-          <Link to="/login" onClick={() => setMenuOpen(false)}>Войти</Link>
+          <Link to="/login" onClick={() => setMenuOpen(false)}>
+            Войти
+          </Link>
         )}
       </div>
     </header>

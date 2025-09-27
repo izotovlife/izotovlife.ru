@@ -1,0 +1,28 @@
+<!-- backend/accounts/templates/emails/activation_email.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f7ff; color: #111; }
+    .card { max-width: 600px; margin: auto; background: #fff; padding: 20px;
+            border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .logo { text-align: center; margin-bottom: 20px; }
+    .btn { display: inline-block; background: #d4af37; color: #fff; padding: 12px 24px;
+           border-radius: 8px; text-decoration: none; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <img src="https://izotovlife.ru/static/logo.png" alt="IzotovLife" width="120">
+    </div>
+    <h2>Добро пожаловать в IzotovLife!</h2>
+    <p>Для завершения регистрации, подтвердите свой email, нажав на кнопку ниже:</p>
+    <p style="text-align:center">
+      <a href="{{ activation_link }}" class="btn">Активировать аккаунт</a>
+    </p>
+    <p>Если вы не регистрировались, просто проигнорируйте это письмо.</p>
+  </div>
+</body>
+</html>

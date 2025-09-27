@@ -2,10 +2,12 @@
 // Назначение: Форма входа.
 // Суперпользователь → редирект в Django admin через одноразовый admin_url.
 // Все остальные → используем redirect_url из бэка.
+// Добавлены ссылки на регистрацию и восстановление пароля.
+// Добавлены кнопки входа через VK, Яндекс, Google (django-allauth).
 // Путь: frontend/src/pages/LoginPage.js
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { setToken, login, whoami, adminSessionLogin } from "../Api";
 
 export default function LoginPage() {
@@ -50,6 +52,9 @@ export default function LoginPage() {
     }
   };
 
+  // базовый URL бэкенда (для редиректов на allauth)
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8000";
+
   return (
     <div className="max-w-md mx-auto mt-10 bg-[var(--bg-card)] p-6 rounded-xl shadow">
       <h1 className="text-xl font-bold mb-4 text-white">Вход</h1>
@@ -76,6 +81,41 @@ export default function LoginPage() {
           Войти
         </button>
       </form>
+
+      {/* Дополнительные ссылки */}
+      <div className="mt-4 flex justify-between text-sm text-gray-300">
+        <Link to="/register" className="hover:underline">
+          Регистрация
+        </Link>
+        <Link to="/reset-password" className="hover:underline">
+          Забыли пароль?
+        </Link>
+      </div>
+
+      {/* Соц. кнопки */}
+      <div className="mt-6">
+        <p className="text-center text-gray-400 mb-2">или войдите через:</p>
+        <div className="flex flex-col gap-2">
+          <a
+            href={`${backendUrl}/accounts/vk/login/`}
+            className="w-full py-2 rounded text-white font-bold text-center bg-[#4a76a8] hover:opacity-90"
+          >
+            Войти через VK
+          </a>
+          <a
+            href={`${backendUrl}/accounts/yandex/login/`}
+            className="w-full py-2 rounded text-black font-bold text-center bg-[#ffcc00] hover:opacity-90"
+          >
+            Войти через Яндекс
+          </a>
+          <a
+            href={`${backendUrl}/accounts/google/login/`}
+            className="w-full py-2 rounded text-white font-bold text-center bg-[#db4437] hover:opacity-90"
+          >
+            Войти через Google
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

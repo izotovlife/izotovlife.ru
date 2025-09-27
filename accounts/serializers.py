@@ -1,5 +1,5 @@
 # backend/accounts/serializers.py
-# Назначение: Сериализаторы пользователей (для JWT и публичного профиля).
+# Назначение: Сериализаторы пользователей (JWT, публичный профиль, регистрация, восстановление пароля).
 # Путь: backend/accounts/serializers.py
 
 from django.contrib.auth import get_user_model
@@ -78,3 +78,43 @@ class AuthorDetailSerializer(serializers.ModelSerializer):
         from news.models import Article
         qs = Article.objects.filter(author=obj, status=Article.Status.PUBLISHED)
         return PublicArticleSerializer(qs, many=True).data
+
+
+# ===== НОВЫЕ СЕРИАЛИЗАТОРЫ =====
+
+class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для регистрации нового пользователя.
+    Пароль хэшируется автоматически.
+    """
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "password"]
+
+    def create(self, validated_data):
+        user = User(
+            username=validated_data["username"],
+            email=validated_data["email"],
+        )
+        user.set_password(validated_data["password"])
+        user.is_active = False  # по умолчанию аккаунт не активен, пока не подтвердит email
+        user.save()
+        return user
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """
+    Сериализатор для запроса восстановления пароля.
+    Проверяет наличие email.
+    """
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """
+    Сериализатор для подтверждения сброса пароля.
+    Проверяет корректность нового пароля.
+    """
+    password = serializers.CharField(write_only=True, min_length=8)

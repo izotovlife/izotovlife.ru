@@ -1,5 +1,5 @@
 # backend/urls.py
-# Назначение: Корневой роутинг Django-проекта (включая sitemap.xml и robots.txt).
+# Назначение: Корневой роутинг Django-проекта (включая sitemap.xml, robots.txt, API, JWT и соц.авторизацию).
 # Путь: backend/urls.py
 
 from django.contrib import admin
@@ -28,9 +28,17 @@ sitemaps = {
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # --- Auth API ---
+    # --- Auth API (твои кастомные ручки) ---
     path("api/auth/login/", LoginView.as_view(), name="api_login"),
     path("api/auth/me/", MeView.as_view(), name="api_me"),
+
+    # --- JWT + соц.авторизация через dj-rest-auth ---
+    path("api/auth/", include("dj_rest_auth.urls")),                 # login/logout/password reset
+    path("api/auth/registration/", include("dj_rest_auth.registration.urls")),  # регистрация
+    path("api/auth/social/", include("allauth.socialaccount.urls")), # соцсети (VK, Яндекс, Google)
+
+    # --- Allauth (стандартные урлы, если хочешь оставить web-формы) ---
+    path("accounts/", include("allauth.urls")),
 
     # --- News ---
     path("api/news/", include(("news.urls", "news"), namespace="news")),
@@ -38,7 +46,7 @@ urlpatterns = [
     # --- Security (уникальная ссылка для админки) ---
     path("api/security/", include(("security.urls", "security"), namespace="security")),
 
-    # --- Security (Статические страницы для админки) ---
+    # --- Pages (статические страницы) ---
     path("api/pages/", include(("pages.urls", "pages"), namespace="pages")),
 
     # --- Robots / Sitemap ---

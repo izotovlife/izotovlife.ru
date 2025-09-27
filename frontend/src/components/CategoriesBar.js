@@ -1,5 +1,6 @@
 // frontend/src/components/CategoriesBar.js
 // Назначение: Полоса категорий по центру, с активной подсветкой и кнопкой "ещё"
+// Исправлено: убраны цифры (news_count), выводится только имя категории
 // Путь: frontend/src/components/CategoriesBar.js
 
 import React, { useEffect, useState } from "react";
@@ -30,11 +31,11 @@ export default function CategoriesBar() {
           const active = location.pathname === `/category/${cat.slug}`;
           return (
             <Link
-              key={cat.id}
+              key={cat.slug}
               to={`/category/${cat.slug}`}
               className={`cat-link ${active ? "active" : ""}`}
             >
-              {cat.name}
+              {cat.name} {/* ⚡ выводим только имя */}
             </Link>
           );
         })}
@@ -48,12 +49,12 @@ export default function CategoriesBar() {
                   const active = location.pathname === `/category/${cat.slug}`;
                   return (
                     <Link
-                      key={cat.id}
+                      key={cat.slug}
                       to={`/category/${cat.slug}`}
                       className={`cat-link ${active ? "active" : ""}`}
                       onClick={() => setShowAll(false)}
                     >
-                      {cat.name}
+                      {cat.name} {/* ⚡ без news_count */}
                     </Link>
                   );
                 })}
@@ -65,7 +66,7 @@ export default function CategoriesBar() {
 
       <style>{`
         .categories-bar {
-          background: #111; /* ✅ фон как у шапки */
+          background: #111;
           border-bottom: 1px solid #333;
           position: relative;
           z-index: 5;
@@ -79,7 +80,7 @@ export default function CategoriesBar() {
         }
         .cat-link {
           font-size: 14px;
-          color: #ccc; /* ✅ белый текст */
+          color: #ccc;
           text-decoration: none;
           padding: 6px 10px;
           border-radius: 4px;
@@ -112,14 +113,14 @@ export default function CategoriesBar() {
           border: none;
           font-size: 18px;
           cursor: pointer;
-          color: #ccc; /* ✅ белая кнопка */
+          color: #ccc;
           padding: 0 6px;
         }
         .dropdown {
           position: absolute;
           top: 100%;
           right: 0;
-          background: #111; /* ✅ тёмный фон */
+          background: #111;
           border: 1px solid #333;
           border-radius: 6px;
           padding: 8px;

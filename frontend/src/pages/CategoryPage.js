@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { fetchCategoryNews } from "../Api";
-import NewsCardText from "../components/NewsCardText";
+import NewsCard from "../components/NewsCard";   // карточка с фото
 import Breadcrumbs from "../components/Breadcrumbs";
 
 export default function CategoryPage() {
@@ -25,9 +25,10 @@ export default function CategoryPage() {
         Новости категории: {slug}
       </h2>
 
-      <div className="grid gap-4">
+      {/* Сетка карточек */}
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {items.map((n) => (
-          <NewsCardText key={n.id} item={n} />
+          <NewsCard key={`${n.type}-${n.id}`} item={n} />
         ))}
       </div>
     </div>

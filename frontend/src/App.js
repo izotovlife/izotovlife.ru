@@ -1,5 +1,8 @@
 // frontend/src/App.js
 // Назначение: Корневой компонент SPA с маршрутизацией.
+// Добавлено:
+//   • Легаси-маршрут /rss/:id → редирект на /news/imported/:id (устраняет предупреждение "No routes matched").
+// Остальные маршруты и структура — без изменений.
 // Путь: frontend/src/App.js
 
 import React from "react";
@@ -8,22 +11,22 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // Общие компоненты
 import Navbar from "./components/Navbar";
 import CategoriesBar from "./components/CategoriesBar";
-import Footer from "./components/Footer"; // ✅ добавили футер
+import Footer from "./components/Footer";
 
 // Страницы
 import FeedPage from "./pages/FeedPage";
 import CategoryPage from "./pages/CategoryPage";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";            // ✅ регистрация
+import ResetPasswordPage from "./pages/ResetPasswordPage";  // ✅ запрос сброса пароля
+import NewPasswordPage from "./pages/NewPasswordPage";      // ✅ ввод нового пароля
 import AuthorDashboard from "./pages/AuthorDashboard";
 import EditorDashboard from "./pages/EditorDashboard";
 import SearchPage from "./pages/SearchPage";
 import NewsDetailPage from "./pages/NewsDetailPage";
 import AllCategoriesPage from "./pages/AllCategoriesPage";
-import StaticPage from "./pages/StaticPage"; // ✅ статические страницы
-
-// Восстановление пароля
-import PasswordResetPage from "./pages/PasswordResetPage";
-import PasswordResetConfirmPage from "./pages/PasswordResetConfirmPage";
+import StaticPage from "./pages/StaticPage";                // ✅ статические страницы
+import RssRedirect from "./pages/RssRedirect";              // ✅ легаси-редирект
 
 export default function App() {
   return (
@@ -40,18 +43,20 @@ export default function App() {
           <Route path="/category/:slug" element={<CategoryPage />} />
           <Route path="/categories" element={<AllCategoriesPage />} />
 
-          {/* Новость (Article или RSS) */}
-          <Route path="/:type/:slugOrId" element={<NewsDetailPage />} />
+          {/* Детальная новость (Article или Imported) */}
+          <Route path="/news/:type/:slugOrId" element={<NewsDetailPage />} />
+          <Route path="/news/:slugOrId" element={<NewsDetailPage />} />
+
+          {/* ✅ Легаси: старые ссылки вида /rss/123 → /news/imported/123 */}
+          <Route path="/rss/:id" element={<RssRedirect />} />
 
           {/* Авторизация */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
           {/* Восстановление пароля */}
-          <Route path="/password-reset" element={<PasswordResetPage />} />
-          <Route
-            path="/password-reset-confirm/:uid/:token"
-            element={<PasswordResetConfirmPage />}
-          />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/reset-password/:uid/:token" element={<NewPasswordPage />} />
 
           {/* Кабинеты */}
           <Route path="/author" element={<AuthorDashboard />} />
@@ -60,12 +65,11 @@ export default function App() {
           {/* Поиск */}
           <Route path="/search" element={<SearchPage />} />
 
-          {/* Статические страницы (Политика, О компании и т.п.) */}
+          {/* Статические страницы */}
           <Route path="/page/:slug" element={<StaticPage />} />
         </Routes>
       </div>
 
-      {/* ✅ Футер подключаем здесь */}
       <Footer />
     </Router>
   );
