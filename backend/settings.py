@@ -1,7 +1,6 @@
-# backend/settings.py
-# Назначение: Базовые настройки Django-проекта, PostgreSQL через .env, DRF, CORS, JWT,
-# кастомная модель пользователя, защита админки + robots.txt support + email + соц.авторизация (VK, Yandex, Google).
 # Путь: backend/settings.py
+# Назначение: Основные настройки Django-проекта News Aggregator (Django + React)
+# Поддерживает: PostgreSQL через .env, DRF, JWT, CORS, соц.авторизацию, почту и логику защиты админки.
 
 from pathlib import Path
 from datetime import timedelta
@@ -9,8 +8,6 @@ import os
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Загружаем переменные окружения
 load_dotenv(BASE_DIR / ".env")
 
 # =======================
@@ -19,19 +16,15 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
-# Хосты и CSRF
 if DEBUG:
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
-    CSRF_TRUSTED_ORIGINS = [
-        "http://127.0.0.1:8000",
-        "http://localhost:8000",
+    ALLOWED_HOSTS = [
+        "127.0.0.1",
+        "localhost",
+        "192.168.0.33",  # ✅ локальный IP твоего React сервера
+        "testserver",
     ]
 else:
     ALLOWED_HOSTS = ["izotovlife.ru", "www.izotovlife.ru"]
-    CSRF_TRUSTED_ORIGINS = [
-        "https://izotovlife.ru",
-        "https://www.izotovlife.ru",
-    ]
 
 # =======================
 # ПРИЛОЖЕНИЯ
@@ -49,7 +42,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "django.contrib.sites",
     "django.contrib.sitemaps",
-    "rest_framework.authtoken",   # ✅ для dj-rest-auth
+    "rest_framework.authtoken",
 
     # --- соц. авторизация ---
     "allauth",
@@ -79,7 +72,7 @@ INSTALLED_APPS = [
 # MIDDLEWARE
 # =======================
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # ✅ ОБЯЗАТЕЛЬНО первым
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -98,12 +91,12 @@ ROOT_URLCONF = "backend.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "backend" / "templates"],  # ✅ robots.txt здесь
+        "DIRS": [BASE_DIR / "backend" / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
-                "django.template.context_processors.request",  # ✅ нужно для allauth
+                "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "backend.context_processors.site_domain",
@@ -115,7 +108,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "backend.wsgi.application"
 
 # =======================
-# БАЗА ДАННЫХ (ТОЛЬКО POSTGRESQL)
+# БАЗА ДАННЫХ
 # =======================
 DATABASES = {
     "default": {
@@ -151,13 +144,7 @@ USE_TZ = True
 # СТАТИКА И МЕДИА
 # =======================
 STATIC_URL = "/static/"
-
-# 👇 Добавлено: чтобы в DEBUG Django видел твои файлы в /static/
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
-
-# 👇 Теперь collectstatic будет складывать в отдельную папку
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
@@ -166,10 +153,33 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # =======================
-# CORS + DRF
+# CORS + CSRF (исправленный)
 # =======================
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+    "http://192.168.0.33:3000",  # ✅ добавлено
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+    "http://192.168.0.33:3000",  # ✅ добавлено
+]
+
+# =======================
+# DRF
+# =======================
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -192,19 +202,12 @@ SIMPLE_JWT = {
 }
 
 # =======================
-# Custom security
+# ПРОЧЕЕ
 # =======================
 SECURITY_ADMIN_SESSION_KEY = "admin_internal_allowed"
-
-# =======================
-# SITE DOMAIN
-# =======================
 SITE_ID = 1
 SITE_DOMAIN = os.getenv("SITE_DOMAIN", "http://127.0.0.1:8000")
 
-# =======================
-# SECURITY FLAGS
-# =======================
 if DEBUG:
     SECURE_SSL_REDIRECT = False
     CSRF_COOKIE_SECURE = False
@@ -215,7 +218,7 @@ else:
     SESSION_COOKIE_SECURE = True
 
 # =======================
-# EMAIL (SMTP)
+# EMAIL
 # =======================
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
@@ -226,7 +229,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@izotovlife.ru")
 
 # =======================
-# ALLAUTH (соц. логин)
+# ALLAUTH
 # =======================
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
@@ -237,25 +240,29 @@ REST_USE_JWT = True
 TOKEN_MODEL = None
 
 SOCIALACCOUNT_PROVIDERS = {
-    "vk": {
-        "APP": {
-            "client_id": os.getenv("VK_CLIENT_ID"),
-            "secret": os.getenv("VK_SECRET"),
-            "key": "",
-        }
+    "vk": {"APP": {"client_id": os.getenv("VK_CLIENT_ID"), "secret": os.getenv("VK_SECRET"), "key": ""}},
+    "yandex": {"APP": {"client_id": os.getenv("YANDEX_CLIENT_ID"), "secret": os.getenv("YANDEX_SECRET"), "key": ""}},
+    "google": {"APP": {"client_id": os.getenv("GOOGLE_CLIENT_ID"), "secret": os.getenv("GOOGLE_SECRET"), "key": ""}},
+}
+
+# =======================
+# ЛОГИРОВАНИЕ
+# =======================
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {"format": "[{asctime}] {levelname} {name}: {message}", "style": "{"},
+        "simple": {"format": "{levelname} {message}", "style": "{"},
     },
-    "yandex": {
-        "APP": {
-            "client_id": os.getenv("YANDEX_CLIENT_ID"),
-            "secret": os.getenv("YANDEX_SECRET"),
-            "key": "",
-        }
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "simple"},
     },
-    "google": {
-        "APP": {
-            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-            "secret": os.getenv("GOOGLE_SECRET"),
-            "key": "",
-        }
+    "loggers": {
+        "news.api_extra_views": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }

@@ -1,0 +1,39 @@
+/* frontend/src/components/search/SearchAutocomplete.module.css
+   Назначение: Стили автокомплита поиска. Ничего особенного — компактный выпадающий список. */
+
+.wrap { position: relative; width: 100%; max-width: 520px; }
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0b0d11;
+  border: 1px solid rgba(255,255,255,.08);
+  color: #e8eaee;
+  outline: none;
+}
+.input:focus { border-color: rgba(96,165,250,.5); }
+
+.dropdown {
+  position: absolute;
+  top: 110%;
+  left: 0; right: 0;
+  background: #0f1115;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 40;
+}
+
+.item {
+  display: block;
+  padding: 10px 12px;
+  text-decoration: none;
+  color: #e8eaee;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.item:last-child { border-bottom: 0; }
+.item:hover { background: rgba(255,255,255,.04); }
+.title { font-size: 14px; line-height: 1.25; }
+.meta { margin-top: 4px; font-size: 12px; color: #9aa4b2; }
+
+.empty { padding: 12px; color: #9aa4b2; font-size: 14px; }

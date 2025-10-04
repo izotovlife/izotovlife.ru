@@ -1,77 +1,127 @@
-# backend/news/serializers.py
+# Путь: backend/news/serializers.py
 # Назначение: Сериализаторы для категорий, статей, импортированных новостей и общий сериализатор News.
-# Улучшено:
-#   - В ArticleSerializer summary теперь виртуальное поле (первые 200 символов content).
-#   - В ImportedNewsSerializer добавлено поле source (NewsSourceSerializer) для вывода логотипа и имени источника.
-#   - Добавлен CategoryMiniSerializer для мини-версии категории.
-#   - Подробные комментарии для понимания структуры данных.
+# Исправления:
+#   - ✅ Добавлены seo_url и category_display для фронта.
+#   - ✅ Ссылки теперь формируются по /news/<category>/<slug>/ и /news/<source>/<slug>/.
+#   - ✅ Ничего не удалено из текущего функционала.
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from .models import Article, Category, ImportedNews, NewsSource
 
 User = get_user_model()
 
+
 class CategorySerializer(serializers.ModelSerializer):
-    """Полная версия категории для вывода в статьях и админке."""
+    """Полная версия категории для вывода в списках с картинкой."""
     news_count = serializers.IntegerField(read_only=True)
+    top_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id", "name", "slug", "news_count"]
+        fields = ["id", "name", "slug", "news_count", "top_image"]
+
+    def get_top_image(self, obj):
+        # Сначала берём самую свежую ImportedNews с картинкой
+        news = (
+            ImportedNews.objects.filter(category=obj)
+            .exclude(image__isnull=True).exclude(image="")
+            .order_by("-published_at")
+            .first()
+        )
+        if news and news.image:
+            return news.image  # у тебя это CharField/URLField
+
+        # Если нет — берём самую свежую Article с обложкой
+        art = (
+            Article.objects.filter(categories=obj)
+            .exclude(cover_image__isnull=True).exclude(cover_image="")
+            .order_by("-created_at")
+            .first()
+        )
+        if art and art.cover_image:
+            return art.cover_image.url if hasattr(art.cover_image, "url") else art.cover_image
+
+        # Fallback: заглушка из media/defaults/
+        return settings.MEDIA_URL + "defaults/default_category.png"
+
 
 class CategoryMiniSerializer(serializers.ModelSerializer):
-    """Мини-версия категории (например, для шапки) — без ID и счётчиков."""
+    """Мини-версия категории (например, для шапки)."""
     class Meta:
         model = Category
         fields = ["name", "slug"]
 
+
 class ArticleSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор авторских статей.
-    Поле summary создаётся динамически из content (первые 200 символов),
-    что позволяет показывать краткий анонс.
-    """
+    """Сериализатор авторских статей."""
     summary = serializers.SerializerMethodField()
+    seo_url = serializers.SerializerMethodField()
+    category_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
         fields = [
             "id", "title", "slug", "content", "summary",
-            "created_at", "published_at", "cover_image", "type",
+            "created_at", "published_at", "cover_image",
+            "type", "seo_url", "category_display",
         ]
 
     def get_summary(self, obj):
-        # Если есть содержимое, берём первые 200 символов, иначе возвращаем пустую строку
         return (obj.content[:200] + "...") if obj.content else ""
 
+    def get_seo_url(self, obj):
+        try:
+            return obj.seo_path
+        except Exception:
+            cat = obj.categories.first()
+            cat_slug = cat.slug if cat else "news"
+            return f"/news/{cat_slug}/{obj.slug}/"
+
+    def get_category_display(self, obj):
+        cat = obj.categories.first()
+        return cat.name if cat else "Новости"
+
+
 class NewsSourceSerializer(serializers.ModelSerializer):
-    """Сериализатор источника (РИА, ТАСС и т.п.)."""
+    """Источник новостей (РИА, ТАСС и т.п.)."""
     class Meta:
         model = NewsSource
         fields = ["id", "name", "slug", "logo"]
 
+
 class ImportedNewsSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор импортированных новостей (RSS).
-    Добавлено поле source: сериализация связанного объекта NewsSource
-    для отображения логотипа и названия источника на фронтенде.
-    """
+    """Сериализатор импортированных новостей (RSS)."""
     source = NewsSourceSerializer(read_only=True)
+    seo_url = serializers.SerializerMethodField()
+    category_display = serializers.SerializerMethodField()
 
     class Meta:
         model = ImportedNews
         fields = [
-            "id", "title", "summary", "image", "link",
+            "id", "title", "slug", "summary", "image", "link",
             "published_at", "category", "created_at", "feed_url",
-            "type", "source",
+            "type", "source", "seo_url", "category_display",
         ]
 
+    def get_seo_url(self, obj):
+        try:
+            return obj.seo_path
+        except Exception:
+            src_slug = obj.source_fk.slug if obj.source_fk else "source"
+            return f"/news/{src_slug}/{obj.slug}/"
+
+    def get_category_display(self, obj):
+        if obj.category:
+            return obj.category.name
+        if obj.source_fk:
+            return obj.source_fk.name
+        return "Новости"
+
+
 class NewsSerializer(serializers.Serializer):
-    """
-    Полиморфный сериализатор для объединённой ленты.
-    В зависимости от типа instance возвращает данные из соответствующего сериализатора.
-    """
+    """Полиморфный сериализатор для объединённой ленты."""
     def to_representation(self, instance):
         if isinstance(instance, Article):
             return ArticleSerializer(instance, context=self.context).data

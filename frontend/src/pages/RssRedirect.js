@@ -1,27 +1,12 @@
-// frontend/src/pages/RssRedirect.js
-// Назначение: Легаси-редирект со старого пути /rss/:id на актуальный /news/imported/:id.
-// Поведение: сразу делает replace-навигацию, чтобы в истории не оставалась промежуточная страница.
 // Путь: frontend/src/pages/RssRedirect.js
+// Назначение: Аккуратный редирект со старых ссылок вида /rss/:slug на ваш корректный роут /news/i/:slug.
+// Примечание: Ничего не удаляет, только перенаправляет — работает за один рендер.
 
-import React, { useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React from "react";
+import { useParams, Navigate } from "react-router-dom";
 
 export default function RssRedirect() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const numericId = String(id || "").trim();
-    if (numericId) {
-      navigate(`/news/imported/${numericId}`, { replace: true });
-    } else {
-      navigate(`/`, { replace: true });
-    }
-  }, [id, navigate]);
-
-  return (
-    <div className="container mx-auto px-4 py-6" style={{ color: "var(--muted,#ccc)" }}>
-      Перенаправляем…
-    </div>
-  );
+  const { slug } = useParams();
+  const safe = (slug || "").replace(/[-/]+$/g, "");
+  return <Navigate to={`/news/i/${encodeURIComponent(safe)}`} replace />;
 }

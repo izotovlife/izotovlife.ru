@@ -8,4 +8,12 @@ from .models import StaticPage
 class StaticPageSerializer(serializers.ModelSerializer):
     class Meta:
         model = StaticPage
-        fields = ["id", "title", "slug", "content", "is_published"]
+        fields = [
+            "id",
+            "title",
+            "slug",
+            "content",
+            "is_published",
+            "created_at",
+            "updated_at",
+        ]

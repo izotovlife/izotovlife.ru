@@ -1,0 +1,145 @@
+/* frontend/src/components/NewsCard.module.css
+   Назначение: Стили карточки новости в ленте. Слой для картинки, заголовка, метаданных.
+   Важно: содержит .mediaWrap с position:relative для бэйджа источника поверх фото.
+*/
+
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card, #0f1115);
+  border: 1px solid var(--border, rgba(255,255,255,0.06));
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.35);
+}
+
+.mediaWrap {
+  position: relative; /* нужно для позиционирования бэйджа источника */
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: #0b0d11;
+  overflow: hidden;
+  /* ↓ помогает корректно перекрывать бэйдж и не создавать лишние слои */
+  isolation: isolate;
+}
+
+.media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  /* ↓ подсказка компоновщику: картинка будет менять filter (blur) — рисуй в отдельном слое */
+  will-change: filter;
+  /* ↓ на всякий случай, если SmartImage не успел снять blur */
+  background-color: #0b0d11;
+}
+
+.body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  font-size: 16px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.title a {
+  color: var(--text, #e8eaee);
+  text-decoration: none;
+}
+
+.title a:hover {
+  text-decoration: underline;
+}
+
+.sourceLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.9;
+  font-size: 12px;
+  color: #9aa4b2;
+}
+
+.sourceDot {
+  width: 6px;
+  height: 6px;
+  background: #9aa4b2;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.sourceText {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #9aa4b2;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.cat {
+  padding: 4px 8px;
+  background: rgba(154,164,178,0.12);
+  border: 1px solid rgba(154,164,178,0.18);
+  border-radius: 999px;
+}
+
+.date {
+  opacity: 0.9;
+}
+
+/* ===================== ДОБАВЛЕНО ДЛЯ ПРОИЗВОДИТЕЛЬНОСТИ ===================== */
+
+/* 1) Пропускаем рендер offscreen-карточек (Chrome/Edge поддерживают).
+   contain-intrinsic-size задаёт «виртуальную» высоту, чтобы не прыгала верстка.
+   Значение примерно под 16:9 + текст (подбери под свою карточку). */
+@supports (content-visibility: auto) {
+  .card {
+    content-visibility: auto;
+    /* ~высота превью 16:9 при ширине 360px = 202px, + тело карты ≈ 120px */
+    contain-intrinsic-size: 322px;
+  }
+}
+
+/* 2) Чуть мягче для пользователей с reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  .card:hover {
+    transform: none;
+  }
+}
+
+/* 3) Аккуратный фокус для доступности */
+.card :where(a:focus-visible) {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* 4) На очень узких экранах уменьшаем заголовок, чтобы меньше переносов */
+@media (max-width: 360px) {
+  .title { font-size: 15px; }
+}
+
+/* =========================================================================== */

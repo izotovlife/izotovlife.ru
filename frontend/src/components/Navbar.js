@@ -1,11 +1,12 @@
 // frontend/src/components/Navbar.js
-// Назначение: фиксированная шапка (логотип, меню, поиск, переключатель слабовидящих,
-// блок с курсами валют и погодой по геолокации пользователя)
-// Путь: frontend/src/components/Navbar.js
+// Назначение: фиксированная шапка (логотип, меню, поиск с выпадающими подсказками,
+// переключатель слабовидящих, блок с курсами валют и погодой по геолокации пользователя).
+// Теперь добавлен автокомплит: первые 5 найденных новостей выпадают прямо под поиском
+// и кликабельны (Link для внутренних статей, <a> для RSS).
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { whoami, setToken, goToAdmin } from "../Api";
+import { whoami, setToken, goToAdmin, searchAll } from "../Api";
 import { FaSearch, FaBars, FaTimes } from "react-icons/fa";
 import { ReactComponent as Logo } from "../assets/izotovlife_logo.svg";
 
@@ -13,6 +14,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]); // результаты для выпадашки
   const [user, setUser] = useState(null);
 
   // валюты
@@ -102,15 +104,39 @@ export default function Navbar() {
     navigate("/");
   };
 
-  // поиск
+  // поиск по кнопке "Найти"
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (query.trim()) {
       navigate(`/search?q=${encodeURIComponent(query.trim())}`);
       setShowSearch(false);
       setQuery("");
+      setResults([]);
     }
   };
+
+  // автокомплит: загрузка первых 5 результатов
+  useEffect(() => {
+    let active = true;
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const data = await searchAll(query.trim(), { limit: 5, offset: 0 });
+        if (active) setResults(data.items || []);
+      } catch {
+        if (active) setResults([]);
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [query]);
 
   // Личный кабинет
   const handlePersonalCabinet = async () => {
@@ -304,8 +330,6 @@ export default function Navbar() {
                   width: 280,
                   boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
                   animation: "fadeIn 0.2s ease",
-                  display: "flex",
-                  gap: 6,
                 }}
               >
                 <form
@@ -343,6 +367,67 @@ export default function Navbar() {
                     Найти
                   </button>
                 </form>
+
+                {/* ВЫПАДАЮЩИЕ РЕЗУЛЬТАТЫ */}
+                {results.length > 0 && (
+                  <ul
+                    style={{
+                      listStyle: "none",
+                      margin: "8px 0 0",
+                      padding: 0,
+                      background: "#222",
+                      border: "1px solid #333",
+                      borderRadius: 6,
+                      maxHeight: 250,
+                      overflowY: "auto",
+                      width: "100%",
+                      zIndex: 100,
+                      position: "relative",
+                    }}
+                  >
+                    {results.map((it) => (
+                      <li key={it.id || it.slug}>
+                        {it.type === "rss" && it.source_url ? (
+                          <a
+                            href={it.source_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              display: "block",
+                              padding: "6px 10px",
+                              color: "white",
+                              textDecoration: "none",
+                            }}
+                            onClick={() => {
+                              setShowSearch(false);
+                              setQuery("");
+                              setResults([]);
+                            }}
+                          >
+                            {it.title}
+                          </a>
+                        ) : (
+                          <Link
+                            to={`/news/${it.category_slug}/${it.slug}`}
+                            style={{
+                              display: "block",
+                              padding: "6px 10px",
+                              color: "white",
+                              textDecoration: "none",
+                            }}
+                            onClick={() => {
+                              setShowSearch(false);
+                              setQuery("");
+                              setResults([]);
+                            }}
+                          >
+                            {it.title}
+                          </Link>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>

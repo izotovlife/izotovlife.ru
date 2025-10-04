@@ -1,76 +1,88 @@
-// frontend/src/App.js
-// Назначение: Корневой компонент SPA с маршрутизацией.
-// Добавлено:
-//   • Легаси-маршрут /rss/:id → редирект на /news/imported/:id (устраняет предупреждение "No routes matched").
-// Остальные маршруты и структура — без изменений.
 // Путь: frontend/src/App.js
+// Назначение: Корневой компонент SPA с SEO-маршрутами под Django backend.
+// Обновления:
+//   • Поддержка SEO-путей: /news/:category/:slug и /news/source/:source/:slug
+//   • Поддержка короткого пути /news/:slug → resolve через API
+//   • Совместимость со старыми путями /rss/:slug и /news/imported/...
 
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 
-// Общие компоненты
 import Navbar from "./components/Navbar";
-import CategoriesBar from "./components/CategoriesBar";
 import Footer from "./components/Footer";
+import HeaderInfo from "./components/HeaderInfo";
 
-// Страницы
 import FeedPage from "./pages/FeedPage";
 import CategoryPage from "./pages/CategoryPage";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";            // ✅ регистрация
-import ResetPasswordPage from "./pages/ResetPasswordPage";  // ✅ запрос сброса пароля
-import NewPasswordPage from "./pages/NewPasswordPage";      // ✅ ввод нового пароля
-import AuthorDashboard from "./pages/AuthorDashboard";
-import EditorDashboard from "./pages/EditorDashboard";
-import SearchPage from "./pages/SearchPage";
 import NewsDetailPage from "./pages/NewsDetailPage";
-import AllCategoriesPage from "./pages/AllCategoriesPage";
-import StaticPage from "./pages/StaticPage";                // ✅ статические страницы
-import RssRedirect from "./pages/RssRedirect";              // ✅ легаси-редирект
+import SearchPage from "./pages/SearchPage";
+import AuthorPage from "./pages/AuthorPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import StaticPage from "./pages/StaticPage";
+
+// Универсальный редирект для старых путей
+function RedirectToCleanNews() {
+  const location = useLocation();
+  const parts = location.pathname.split("/");
+  const slug = parts[parts.length - 1];
+  return <Navigate to={`/news/${slug}`} replace />;
+}
 
 export default function App() {
   return (
     <Router>
-      <Navbar />
-      <CategoriesBar />
+      <div className="App">
+        <Navbar />
+        <HeaderInfo compact={true} />
 
-      <div className="container mx-auto px-4 py-6">
         <Routes>
           {/* Главная лента */}
           <Route path="/" element={<FeedPage />} />
 
           {/* Категории */}
+          <Route path="/categories" element={<CategoryPage />} />
           <Route path="/category/:slug" element={<CategoryPage />} />
-          <Route path="/categories" element={<AllCategoriesPage />} />
 
-          {/* Детальная новость (Article или Imported) */}
-          <Route path="/news/:type/:slugOrId" element={<NewsDetailPage />} />
-          <Route path="/news/:slugOrId" element={<NewsDetailPage />} />
+          {/* Поиск и автор */}
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/author/:id" element={<AuthorPage />} />
 
-          {/* ✅ Легаси: старые ссылки вида /rss/123 → /news/imported/123 */}
-          <Route path="/rss/:id" element={<RssRedirect />} />
+          {/* ✅ SEO-маршруты новостей */}
+          <Route path="/news/:category/:slug" element={<NewsDetailPage />} />
+          <Route path="/news/source/:source/:slug" element={<NewsDetailPage />} />
+          <Route path="/news/:slug" element={<NewsDetailPage />} />
 
-          {/* Авторизация */}
+          {/* ===== Легаси-редиректы ===== */}
+          <Route path="/rss/:slug" element={<RedirectToCleanNews />} />
+          <Route path="/news/a/:slugOrId" element={<RedirectToCleanNews />} />
+          <Route path="/news/i/:slugOrId" element={<RedirectToCleanNews />} />
+          <Route
+            path="/news/imported/:sourceSlug/:importedSlug"
+            element={<RedirectToCleanNews />}
+          />
+          <Route
+            path="/news/:sourceSlug/:importedSlug"
+            element={<RedirectToCleanNews />}
+          />
+
+          {/* Авторизация и статические страницы */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/pages/:slug" element={<StaticPage />} />
 
-          {/* Восстановление пароля */}
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/reset-password/:uid/:token" element={<NewPasswordPage />} />
-
-          {/* Кабинеты */}
-          <Route path="/author" element={<AuthorDashboard />} />
-          <Route path="/editor" element={<EditorDashboard />} />
-
-          {/* Поиск */}
-          <Route path="/search" element={<SearchPage />} />
-
-          {/* Статические страницы */}
-          <Route path="/page/:slug" element={<StaticPage />} />
+          {/* Фолбэк */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </div>
 
-      <Footer />
+        <Footer />
+      </div>
     </Router>
   );
 }

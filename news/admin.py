@@ -1,10 +1,10 @@
 # backend/news/admin.py
-# Назначение: Админка для категорий, статей, импортированных новостей и источников.
+# Назначение: Админка для категорий, статей, импортированных новостей, источников + логов резолвера slug.
 # Обновлено:
 #   - Используются source_fk и image.
 #   - Превью логотипа источника и картинки новости.
 #   - Фильтр по источнику с логотипами.
-# Путь: backend/news/admin.py
+#   - ✅ Подключен раздел "Логи резолвера" через admin_logs.py.
 
 from django.contrib import admin
 from django.utils.html import format_html
@@ -12,6 +12,8 @@ from django.utils import timezone
 from django.db.models import Count
 
 from .models import Category, Article, ImportedNews, NewsSource
+# ✅ добавляем регистрацию логов
+from .admin_logs import *
 
 
 @admin.register(Category)
@@ -31,7 +33,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "status", "created_at", "published_at")
+    list_display = ("title", "author", "status", "created_at", "published_at", "views_count")
     list_filter = ("status", "created_at", "published_at")
     search_fields = ("title", "content")
     date_hierarchy = "created_at"
@@ -69,8 +71,11 @@ class SourceLogoFilter(admin.SimpleListFilter):
         lookups = []
         for src in sources:
             if src.logo:
-                label = format_html('<img src="{}" style="height:20px; margin-right:5px;"/> {}',
-                                    src.logo.url, src.name)
+                label = format_html(
+                    '<img src="{}" style="height:20px; margin-right:5px;"/> {}',
+                    src.logo.url,
+                    src.name,
+                )
             else:
                 label = src.name
             lookups.append((src.id, label))
@@ -93,6 +98,7 @@ class ImportedNewsAdmin(admin.ModelAdmin):
         "preview_image",
         "source_logo",
         "is_archived",
+        "views_count",
     )
     list_filter = (SourceLogoFilter, "category", "created_at", "archived_at")
     search_fields = ("title", "summary", "link")
