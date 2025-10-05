@@ -110,16 +110,29 @@ WSGI_APPLICATION = "backend.wsgi.application"
 # =======================
 # БАЗА ДАННЫХ
 # =======================
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB"),
-        "USER": os.getenv("POSTGRES_USER"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+
+if POSTGRES_DB and POSTGRES_USER and POSTGRES_PASSWORD:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": POSTGRES_DB,
+            "USER": POSTGRES_USER,
+            "PASSWORD": POSTGRES_PASSWORD,
+            "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+            "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        }
     }
-}
+else:
+    # ✅ Локальная разработка: используем SQLite, если не заданы переменные PostgreSQL
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # =======================
 # АУТЕНТИФИКАЦИЯ
@@ -207,6 +220,11 @@ SIMPLE_JWT = {
 SECURITY_ADMIN_SESSION_KEY = "admin_internal_allowed"
 SITE_ID = 1
 SITE_DOMAIN = os.getenv("SITE_DOMAIN", "http://127.0.0.1:8000")
+TRUSTED_ADMIN_IPS = [
+    ip.strip()
+    for ip in os.getenv("TRUSTED_ADMIN_IPS", "127.0.0.1,::1").split(",")
+    if ip.strip()
+]
 
 if DEBUG:
     SECURE_SSL_REDIRECT = False
