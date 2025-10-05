@@ -261,6 +261,7 @@ class ImportedNewsDetailView(generics.RetrieveAPIView):
 
     def get_object(self):
         slug = self.kwargs.get("slug")
+        # Даже если фильтр по source ничего не дал, попробуем просто по slug (на случай старого формата)
         return get_object_or_404(self.get_queryset(), slug=slug)
 
 # ======= ПОХОЖИЕ =======

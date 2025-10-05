@@ -65,7 +65,7 @@ INSTALLED_APPS = [
     "security",
     "rssfeed",
     "pages",
-    "ckeditor",
+    "django_ckeditor_5",
 ]
 
 # =======================
@@ -155,6 +155,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # =======================
 # CORS + CSRF (исправленный)
 # =======================
+# =======================
+# CORS + CSRF (исправленный финально)
+# =======================
+CORS_ALLOW_ALL_ORIGINS = False  # безопаснее, чем True
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
@@ -164,7 +168,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3001",
     "http://localhost:3002",
     "http://127.0.0.1:3002",
-    "http://192.168.0.33:3000",  # ✅ добавлено
+    "http://localhost:3003",      # ✅ твой фронтенд порт
+    "http://127.0.0.1:3003",
+    "http://192.168.0.33:3000",   # ✅ твой локальный IP
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -174,7 +180,19 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3001",
     "http://localhost:3002",
     "http://127.0.0.1:3002",
-    "http://192.168.0.33:3000",  # ✅ добавлено
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
+    "http://192.168.0.33:3000",
+]
+
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
+    "accept",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
 ]
 
 # =======================
@@ -204,7 +222,7 @@ SIMPLE_JWT = {
 # =======================
 # ПРОЧЕЕ
 # =======================
-SECURITY_ADMIN_SESSION_KEY = "admin_internal_allowed"
+SECURITY_ADMIN_SESSION_KEY = "admin_internal_allowed"  # ваш ключ — middleware его использует
 SITE_ID = 1
 SITE_DOMAIN = os.getenv("SITE_DOMAIN", "http://127.0.0.1:8000")
 
@@ -266,3 +284,32 @@ LOGGING = {
         },
     },
 }
+# --- System checks: silence legacy CKEditor 4 warning (until we migrate 'pages') ---
+SILENCED_SYSTEM_CHECKS = [
+    *globals().get("SILENCED_SYSTEM_CHECKS", []),
+]
+# ===========================
+# CKEditor 5 config (для админских/страничных форм)
+# ===========================
+CKEDITOR_5_CONFIGS = {
+    "default": {
+        "toolbar": [
+            "heading", "|",
+            "bold", "italic", "underline", "strikethrough", "|",
+            "link", "blockQuote", "code", "|",
+            "bulletedList", "numberedList", "outdent", "indent", "|",
+            "insertTable", "undo", "redo",
+        ],
+        "table": {
+            "contentToolbar": ["tableColumn", "tableRow", "mergeTableCells"],
+        },
+        "language": "ru",
+    }
+}
+
+# =======================
+# ⚙️ Безопасность админки (одноразовый вход) — ДОБАВЛЕНО
+# =======================
+ADMIN_INTERNAL_URL = "/_internal_admin/"          # ✅ реальный путь admin.site.urls
+TRUSTED_ADMIN_IPS = ["127.0.0.", "192.168.", "10."]  # ✅ префиксы белого списка (по желанию)
+ALLOW_SUPERUSER_BYPASS = False                    # ✅ в проде лучше False, чтобы вход был только через токен

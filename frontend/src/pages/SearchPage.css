@@ -1,0 +1,181 @@
+/* Страница поиска — карточки с плавной анимацией появления */
+.search-page {
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 0 16px;
+  color: #e8eaee;
+}
+
+.search-page h1 {
+  margin-bottom: 6px;
+  font-size: 26px;
+  color: #f3f4f6;
+}
+
+.query-info {
+  color: #9aa4b2;
+  margin-bottom: 18px;
+  font-size: 15px;
+}
+
+.error {
+  color: #ff6b6b;
+  margin-bottom: 12px;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+/* --- Карточки --- */
+.card {
+  background: #0f1115;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  animation: fadeInUp 0.5s ease both;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.thumb {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  background: #1a1d25;
+}
+
+.thumb.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 30px;
+}
+
+.card-content {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-content h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.35;
+  color: #fff;
+}
+
+.card-content p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #bbb;
+  line-height: 1.45;
+}
+
+.meta {
+  font-size: 13px;
+  color: #999;
+}
+
+.read-more {
+  color: #3ea6ff;
+  font-size: 14px;
+  text-decoration: none;
+  margin-top: 4px;
+  align-self: flex-start;
+  transition: color 0.2s ease;
+}
+.read-more:hover {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+/* --- Анимация появления карточек --- */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+/* --- Скелетоны --- */
+.skeleton {
+  background: linear-gradient(90deg, #1c1f27 25%, #232732 50%, #1c1f27 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+.skeleton-card {
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #0f1115;
+}
+
+.skeleton.thumb {
+  height: 150px;
+}
+
+.skeleton.text-line {
+  height: 12px;
+  width: 80%;
+}
+
+.skeleton.text-line.short {
+  width: 50%;
+}
+
+.skeleton.text-line.long {
+  width: 90%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* --- Мобильная адаптация --- */
+@media (max-width: 600px) {
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-content h3 {
+    font-size: 16px;
+  }
+
+  .thumb {
+    height: 140px;
+  }
+
+  .search-page h1 {
+    font-size: 22px;
+  }
+}

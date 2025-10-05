@@ -1,40 +1,28 @@
-// frontend/src/components/search/SearchAutocomplete.jsx
-// Назначение: Поле поиска с автокомплитом. Формирует корректные SEO-ссылки для клика:
-//   • RSS (импорт): /news/:sourceSlug/:slug
-//   • Article:      /news/:categorySlug/:slug
-//   • Фолбэк:       /news/:slug (если чего-то не хватает, деталка разрулит)
-//
-// Зависимости: Api.searchAll, react-router-dom.
+// Путь: frontend/src/components/search/SearchAutocomplete.jsx
+// Назначение: Поле поиска с автокомплитом (выпадающие результаты при вводе).
+// Версия v4 — мгновенный поиск через /api/news/autocomplete/
+// ✅ Limit=8, debounce=200мс
+// ✅ Миниатюры, источник, подсветка
+// ✅ Автоматическое закрытие при клике вне
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { searchAll } from "../../Api";
+import axios from "axios";
 import css from "./SearchAutocomplete.module.css";
 
-function isImported(item) {
-  // Эвристика: у импортированных обычно есть link и нет собственного content
-  return !!item?.link && !item?.content;
-}
-function pickSourceSlug(item) {
-  return item?.source?.slug || item?.source_slug || item?.publisher_slug || null;
-}
-function pickCategorySlug(item) {
-  return item?.category?.slug || item?.category_slug || null;
-}
-function buildDetailHref(item) {
-  const slug = item?.slug || item?.seo_slug || item?.url_slug || null;
-  if (!slug) return "#";
-
-  if (isImported(item)) {
-    const src = pickSourceSlug(item);
-    if (src) return `/news/${src}/${slug}`;
-    return `/news/${slug}`;
+// ---------- Утилиты ----------
+function highlightQuery(text, query) {
+  if (!query || !text) return text;
+  try {
+    const safe = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(safe, "gi");
+    return text.replace(regex, (m) => `<mark>${m}</mark>`);
+  } catch {
+    return text;
   }
-  const cat = pickCategorySlug(item);
-  if (cat) return `/news/${cat}/${slug}`;
-  return `/news/${slug}`;
 }
 
+// ---------- Компонент ----------
 export default function SearchAutocomplete() {
   const [q, setQ] = useState("");
   const [items, setItems] = useState([]);
@@ -43,45 +31,60 @@ export default function SearchAutocomplete() {
   const boxRef = useRef(null);
   const navigate = useNavigate();
 
+  // --- Закрытие при клике вне блока ---
   useEffect(() => {
     const onDocClick = (e) => {
       if (!boxRef.current) return;
-      if (!boxRef.current.contains(e.target)) setOpen(false);
+      if (e.target.closest(`.${css.wrap}`)) return;
+      setOpen(false);
     };
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  // --- Поиск с задержкой (debounce) ---
   useEffect(() => {
-    const h = setTimeout(async () => {
-      if (!q.trim()) {
+    const delay = setTimeout(async () => {
+      const value = q.trim();
+      if (!value) {
         setItems([]);
+        setOpen(false);
         return;
       }
+
       try {
         setLoading(true);
-        const { items: found } = await searchAll(q, { limit: 10, offset: 0 });
+        const res = await axios.get("http://localhost:8000/api/news/autocomplete/", {
+          params: { q: value, limit: 8 },
+        });
+        const data = res.data;
+        const found = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+          ? data
+          : [];
         setItems(found);
-        setOpen(true);
+        setOpen(found.length > 0);
+      } catch (err) {
+        console.error("Ошибка автопоиска:", err);
+        setItems([]);
+        setOpen(false);
       } finally {
         setLoading(false);
       }
     }, 200);
-    return () => clearTimeout(h);
+
+    return () => clearTimeout(delay);
   }, [q]);
 
   function onSubmit(e) {
     e.preventDefault();
-    if (items.length) {
-      const href = buildDetailHref(items[0]);
-      if (href && href !== "#") {
-        navigate(href);
-        setOpen(false);
-      }
-    }
+    if (items.length) navigate(items[0].seo_url);
+    else if (q.trim()) navigate(`/search?q=${encodeURIComponent(q.trim())}`);
+    setOpen(false);
   }
 
-  const list = useMemo(() => items.slice(0, 10), [items]);
+  const list = useMemo(() => (items?.length ? items.slice(0, 8) : []), [items]);
 
   return (
     <div className={css.wrap} ref={boxRef}>
@@ -95,32 +98,40 @@ export default function SearchAutocomplete() {
         />
       </form>
 
-      {open && list.length > 0 && (
+      {open && (
         <div className={css.dropdown} role="listbox">
-          {list.map((it) => {
-            const href = buildDetailHref(it);
-            return (
-              <Link
-                key={it.id || it.slug || Math.random()}
-                to={href}
-                className={css.item}
-                onClick={() => setOpen(false)}
-              >
-                <div className={css.title}>{it.title || "Без названия"}</div>
-                <div className={css.meta}>
-                  {isImported(it)
-                    ? (it?.source?.name || it?.source_name || "Источник")
-                    : (it?.category?.name || it?.category_name || "Статья")}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-
-      {open && !loading && list.length === 0 && (
-        <div className={css.dropdown}>
-          <div className={css.empty}>Ничего не найдено</div>
+          {loading && <div className={css.empty}>Загрузка…</div>}
+          {!loading && list.length === 0 && (
+            <div className={css.empty}>Ничего не найдено</div>
+          )}
+          {!loading &&
+            list.map((it, idx) => (
+              <React.Fragment key={it.id || idx}>
+                <Link
+                  to={it.seo_url}
+                  className={css.item}
+                  onMouseDown={() => setOpen(false)}
+                >
+                  {it.image ? (
+                    <img src={it.image} alt="" className={css.thumb} />
+                  ) : (
+                    <div className={css.thumbPlaceholder}>📰</div>
+                  )}
+                  <div className={css.textBlock}>
+                    <div
+                      className={css.title}
+                      dangerouslySetInnerHTML={{
+                        __html: highlightQuery(it.title || "(Без заголовка)", q),
+                      }}
+                    />
+                    <div className={css.meta}>
+                      {it.source_name || "Источник"}
+                    </div>
+                  </div>
+                </Link>
+                {idx < list.length - 1 && <div className={css.divider}></div>}
+              </React.Fragment>
+            ))}
         </div>
       )}
     </div>

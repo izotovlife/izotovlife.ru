@@ -1,45 +1,33 @@
-// frontend/src/pages/SearchPage.js
-// Оптимизация: debounce для запросов, загрузка пачками по 30-50.
 // Путь: frontend/src/pages/SearchPage.js
+// Назначение: страница поиска новостей, совместимая с API /api/news/search/
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { searchAll } from "../Api";
+import "./SearchPage.css";
 
 function formatDate(dt) {
   if (!dt) return "";
   try {
-    return new Date(dt).toLocaleString("ru-RU");
+    return new Date(dt).toLocaleDateString("ru-RU", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return dt;
   }
 }
 
-// --- Компонент скелетона карточки ---
 function SkeletonCard() {
   return (
-    <div
-      style={{
-        border: "1px solid #1f2937",
-        borderRadius: 12,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div className="skeleton" style={{ height: 150, width: "100%" }} />
-      <div
-        style={{
-          padding: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
-        <div className="skeleton" style={{ height: 14, width: "60%" }} />
-        <div className="skeleton" style={{ height: 20, width: "90%" }} />
-        <div className="skeleton" style={{ height: 16, width: "80%" }} />
-      </div>
+    <div className="card skeleton-card">
+      <div className="skeleton thumb" />
+      <div className="skeleton text-line short" />
+      <div className="skeleton text-line" />
+      <div className="skeleton text-line long" />
     </div>
   );
 }
@@ -56,7 +44,6 @@ export default function SearchPage() {
   const limit = 30;
   const [page, setPage] = useState(1);
   const offset = useMemo(() => (page - 1) * limit, [page]);
-
   const loaderRef = useRef(null);
 
   // сброс при новом запросе
@@ -67,6 +54,7 @@ export default function SearchPage() {
 
   useEffect(() => {
     let cancelled = false;
+
     const timer = setTimeout(async () => {
       if (!q) {
         setItems([]);
@@ -74,18 +62,27 @@ export default function SearchPage() {
         setErr("");
         return;
       }
+
       setLoading(true);
       setErr("");
+
       try {
         const data = await searchAll(q, { limit, offset });
+
+        // исправлено: API возвращает results и count
+        const found = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+          ? data
+          : [];
+
         if (!cancelled) {
-          setItems((prev) =>
-            page === 1 ? data.items : [...prev, ...data.items]
-          );
-          setTotal(data.total);
+          setItems((prev) => (page === 1 ? found : [...prev, ...found]));
+          setTotal(data?.count || found.length);
         }
       } catch (e) {
         if (!cancelled) {
+          console.error("Ошибка загрузки поиска:", e);
           setErr(e?.message || "Ошибка запроса");
           setItems([]);
           setTotal(0);
@@ -93,15 +90,15 @@ export default function SearchPage() {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }, 300); // debounce 300 мс
+    }, 300);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [q, offset, page, limit]);
+  }, [q, offset, page]);
 
-  // IntersectionObserver
+  // IntersectionObserver — автоподгрузка
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -116,93 +113,62 @@ export default function SearchPage() {
   }, [loading, items, total]);
 
   return (
-    <main style={{ maxWidth: 1100, margin: "16px auto", padding: "0 16px" }}>
-      <h1 style={{ margin: "0 0 12px" }}>Поиск</h1>
-      <div style={{ color: "#666", marginBottom: 16 }}>
+    <main className="search-page">
+      <h1>Поиск</h1>
+      <div className="query-info">
         Запрос: <b>{q || "—"}</b>{" "}
         {total ? `(найдено: ${total})` : ""}
       </div>
 
-      {err && <div style={{ color: "crimson" }}>Ошибка: {err}</div>}
-      {!loading && !err && q && total === 0 && <div>Ничего не найдено.</div>}
+      {err && <div className="error">Ошибка: {err}</div>}
+      {!loading && !err && q && total === 0 && (
+        <div>Ничего не найдено.</div>
+      )}
       {!q && <div>Введите запрос в строке поиска вверху.</div>}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          gap: 16,
-        }}
-      >
-        {items.map((it) => (
+      <div className="results-grid">
+        {items.map((it, idx) => (
           <article
-            key={it.id || it.slug || it.source_url}
-            style={{
-              border: "1px solid #1f2937",
-              borderRadius: 12,
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-            }}
+            key={it.id || it.slug || idx}
+            className="card fade-in-up"
+            style={{ animationDelay: `${idx * 0.04}s` }}
           >
             {it.image ? (
               <img
                 src={it.image}
                 alt=""
-                style={{ width: "100%", height: 150, objectFit: "cover" }}
+                className="thumb"
                 loading="lazy"
               />
-            ) : null}
+            ) : (
+              <div className="thumb placeholder">📰</div>
+            )}
 
-            <div
-              style={{
-                padding: 12,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
-              <div style={{ fontSize: 14, color: "#888" }}>
-                {it.source || (it.type === "rss" ? "RSS" : "Автор")}
-                {it.published_at ? ` • ${formatDate(it.published_at)}` : ""}
+            <div className="card-content">
+              <div className="meta">
+                {it?.source_name ||
+                  it?.source?.name ||
+                  it?.category_display ||
+                  "Источник"}
+                {it.published_at
+                  ? ` • ${formatDate(it.published_at)}`
+                  : ""}
               </div>
 
-              <h3 style={{ margin: 0, fontSize: 18, lineHeight: 1.25 }}>
-                {it.title}
-              </h3>
+              <h3>{it.title}</h3>
 
-              {it.type === "rss" && it.source_url ? (
-                <a
-                  href={it.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    color: "#1a73e8",
-                    fontSize: 14,
-                    textDecoration: "underline",
-                  }}
-                >
-                  Читать в источнике →
-                </a>
-              ) : it.type === "article" && it.slug ? (
-                <Link
-                  to={`/article/${it.slug}`}
-                  style={{
-                    color: "#1a73e8",
-                    fontSize: 14,
-                    textDecoration: "underline",
-                  }}
-                >
-                  Подробнее →
-                </Link>
-              ) : null}
-
-              {it.summary ? (
-                <p style={{ margin: 0, color: "#ccc" }}>
-                  {it.summary.slice(0, 220)}
-                  {it.summary.length > 220 ? "…" : ""}
+              {it.summary && (
+                <p>
+                  {it.summary.slice(0, 180)}
+                  {it.summary.length > 180 ? "…" : ""}
                 </p>
-              ) : null}
+              )}
+
+              {it.seo_url && (
+                <Link to={it.seo_url} className="read-more">
+                  Читать далее →
+                </Link>
+              )}
             </div>
           </article>
         ))}

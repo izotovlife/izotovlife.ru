@@ -1,15 +1,18 @@
-# backend/pages/models.py
-# Назначение: Модель статических страниц для админки (с поддержкой визуального редактора CKEditor).
+# Путь: backend/pages/models.py
+# Назначение: Модель статических страниц для админки (с поддержкой визуального редактора CKEditor 5).
+# Изменения:
+#   - УДАЛЕНО: использование RichTextField (из django-ckeditor 4).
+#   - ДОБАВЛЕНО: CKEditor5Field (из django-ckeditor-5), config_name="default".
 
 from django.db import models
 from django.utils.text import slugify
-from ckeditor.fields import RichTextField   # ✅ подключаем CKEditor
+from django_ckeditor_5.fields import CKEditor5Field  # CKEditor 5 поле
 
 
 class StaticPage(models.Model):
     title = models.CharField("Заголовок", max_length=255)
     slug = models.SlugField("Слаг", max_length=255, unique=True, blank=True)
-    content = RichTextField("Содержимое")   # ✅ теперь поле с визуальным редактором
+    content = CKEditor5Field("Содержимое", config_name="default")  # ✅ CKEditor 5
     created_at = models.DateTimeField("Создано", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлено", auto_now=True)
     is_published = models.BooleanField("Опубликовано", default=True)

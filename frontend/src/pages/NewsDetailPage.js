@@ -1,12 +1,6 @@
 // Путь: frontend/src/pages/NewsDetailPage.js
-// Назначение: Детальная страница новости (Article или Imported RSS).
-// Особенности:
-//   ✅ Сначала делает resolve(slug), чтобы определить тип и SEO-URL.
-//   ✅ Защищён от циклов navigate().
-//   ✅ Безопасно вызывает fetchRelated и hitMetrics.
-
 import React, { useEffect, useState, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import DOMPurify from "dompurify";
 import s from "./NewsDetailPage.module.css";
 import {
@@ -18,24 +12,26 @@ import {
   resolveNews,
 } from "../Api";
 
-// ---------------- Утилиты ----------------
+// ---------- утилиты ----------
 function getHostname(url) {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 }
 function sourceDisplay(n) {
-  return (
-    n?.source?.name || n?.source_name || getHostname(n?.link || "") || "Источник"
-  );
+  return n?.source?.name || n?.source_name || getHostname(n?.link || "") || "Источник";
+}
+// глобальный кэш на вкладку, переживает перемонтирование компонента
+function getLoadedSet() {
+  if (!window.__loadedSlugs) window.__loadedSlugs = new Set();
+  return window.__loadedSlugs;
 }
 
-// ---------------- Компонент ----------------
 export default function NewsDetailPage() {
+  // читаем ВСЕ параметры — так мы понимаем тип прямо из URL
   const { category, source, slug } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [news, setNews] = useState(null);
   const [related, setRelated] = useState([]);
@@ -49,144 +45,140 @@ export default function NewsDetailPage() {
   const [latestCount, setLatestCount] = useState(5);
   const [relatedCount, setRelatedCount] = useState(5);
 
-  // 🔒 Флаги
-  const didInitRef = useRef(false);
   const inflightRef = useRef(false);
-  const lastSlugRef = useRef(null);
   const hasRedirectedRef = useRef(false);
+  const lastRunAtRef = useRef(0);
 
-  // ---------------- Загрузка новости ----------------
+  // ---------- основная загрузка ----------
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      if (inflightRef.current && lastSlugRef.current === slug) return;
+      // анти-дребезг
+      const now = Date.now();
+      if (inflightRef.current || now - lastRunAtRef.current < 600) return;
+      lastRunAtRef.current = now;
+
+      // глобальный кэш — если уже грузили этот путь, не повторяем
+      const loaded = getLoadedSet();
+      const cacheKey = location.pathname; // учитываем полный путь
+      if (loaded.has(cacheKey)) {
+        setLoading(false);
+        return;
+      }
+
       inflightRef.current = true;
-      lastSlugRef.current = slug;
+      setLoading(true);
 
       try {
-        setLoading(true);
         window.scrollTo({ top: 0, behavior: "instant" });
 
         let finalType = null;
         let finalParam = null;
         let finalSlug = slug;
 
-        // 1️⃣ Резолвим slug → тип, seo_url
-        try {
-          const r = await resolveNews(slug);
+        // 1) сначала пытаемся определить тип из URL, без resolve
+        if (source && slug) {
+          finalType = "rss";
+          finalParam = source;
+          finalSlug = slug;
+        } else if (category && slug) {
+          finalType = "article";
+          finalParam = category;
+          finalSlug = slug;
+        } else {
+          // 2) «короткая» ссылка — используем resolve
+          try {
+            const r = await resolveNews(slug);
 
-          // очищаем URLы (без / и без origin)
-          const current = window.location.pathname.replace(/\/+$/, "");
-          const target = r?.seo_url?.replace(/\/+$/, "");
-          if (
-            target &&
-            current !== target &&
-            !hasRedirectedRef.current // 🚫 второй раз не редиректим
-          ) {
-            console.log("➡️ redirect to SEO URL:", target);
-            hasRedirectedRef.current = true;
-            navigate(target, { replace: true });
-            inflightRef.current = false;
-            return;
-          }
+            const current = window.location.pathname.replace(/\/+$/, "");
+            const target = r?.seo_url?.replace(/\/+$/, "");
+            if (target && current !== target && !hasRedirectedRef.current) {
+              hasRedirectedRef.current = true;
+              navigate(target, { replace: true });
+              return; // дальше не продолжаем — будет новый mount
+            }
 
-          finalType = r?.type || null;
-          finalSlug = r?.slug || slug;
-          if (finalType === "rss") finalParam = r?.source;
-          else if (finalType === "article")
-            finalParam = r?.category || category || "news";
-        } catch (e) {
-          if (source && slug) {
-            finalType = "rss";
-            finalParam = source;
-            finalSlug = slug;
-          } else if (category && slug) {
-            finalType = "article";
-            finalParam = category;
-            finalSlug = slug;
-          } else {
-            console.warn("resolveNews: не найден:", e);
+            finalType = r?.type || null;
+            finalSlug = r?.slug || slug;
+            if (finalType === "rss") finalParam = r?.source;
+            else if (finalType === "article") finalParam = r?.category || "news";
+          } catch (e) {
+            console.warn("resolveNews не дал ответа, попробуем прямые ручки:", e);
           }
         }
 
-        // 2️⃣ Загружаем саму новость
+        // 3) тянем новость
         let item = null;
         try {
-          if (finalType === "article") {
+          if (finalType === "article" && finalParam && finalSlug) {
             item = await fetchArticle(finalParam, finalSlug);
-          } else if (finalType === "rss") {
+          } else if (finalType === "rss" && finalParam && finalSlug) {
             item = await fetchImportedNews(finalParam, finalSlug);
+          } else {
+            // в крайнем случае пробуем оба по очереди (но БЕЗ resolve)
+            try { item = await fetchImportedNews(source || "source", finalSlug); } catch {}
+            if (!item) try { item = await fetchArticle(category || "news", finalSlug); } catch {}
           }
         } catch (err) {
           console.error("Ошибка загрузки новости:", err);
         }
 
-        // 3️⃣ Проверяем URL — если отличается
+        // 4) поправляем URL, если есть расхождение
         if (item?.slug) {
           const seoUrl = item?.source
             ? `/news/source/${item.source?.slug || "source"}/${item.slug}`
             : `/news/${item.categories?.[0]?.slug || "news"}/${item.slug}`;
           const current = window.location.pathname.replace(/\/+$/, "");
-          if (
-            seoUrl.replace(/\/+$/, "") !== current &&
-            !hasRedirectedRef.current
-          ) {
-            console.log("➡️ redirect to item slug:", seoUrl);
+          if (seoUrl.replace(/\/+$/, "") !== current && !hasRedirectedRef.current) {
             hasRedirectedRef.current = true;
             navigate(seoUrl, { replace: true });
-            inflightRef.current = false;
             return;
           }
         }
 
         if (!cancelled) setNews(item || null);
 
-        // 4️⃣ Похожие
-        if (finalType && finalParam && finalSlug) {
+        // 5) похожие
+        if (!cancelled && item?.slug) {
           try {
-            const rel = await fetchRelated(finalType, finalParam, finalSlug);
+            const typeGuess = item?.source ? "rss" : "article";
+            const paramGuess = item?.source?.slug || item?.categories?.[0]?.slug || "news";
+            const rel = await fetchRelated(typeGuess, paramGuess, item.slug);
             if (!cancelled) setRelated(rel || []);
           } catch (e) {
             console.warn("fetchRelated error:", e);
           }
         }
 
-        // 5️⃣ Метрики
-        if (item?.slug && finalType) {
+        // 6) метрики
+        if (!cancelled && item?.slug) {
           try {
-            const d = await hitMetrics(finalType, item.slug);
+            const typeGuess = item?.source ? "rss" : "article";
+            const d = await hitMetrics(typeGuess, item.slug);
             if (!cancelled && d?.views) setViews(d.views);
           } catch (e) {
             console.warn("hitMetrics error:", e);
           }
         }
-      } catch (e) {
-        console.error("Ошибка загрузки:", e);
-        if (!cancelled) {
-          setNews(null);
-          setRelated([]);
-        }
+
+        // помечаем путь как загруженный
+        loaded.add(cacheKey);
       } finally {
         inflightRef.current = false;
         if (!cancelled) setLoading(false);
       }
     }
 
-    // StrictMode защита
-    if (!didInitRef.current) {
-      didInitRef.current = true;
-      load();
-    } else {
-      load();
-    }
+    hasRedirectedRef.current = false; // один редирект на slug
+    load();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [slug, category, source, navigate]);
+    return () => { cancelled = true; };
+    // ВАЖНО: завязываемся на ПОЛНЫЙ путь. Если родитель нас «перемонтирует» с тем же slug,
+    // но иным path (например, хвосты/слэши), это будет считаться новым кейсом — и ок.
+  }, [slug, source, category, location.pathname, navigate]);
 
-  // ---------------- Последние новости ----------------
+  // ---------- последние новости ----------
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -199,12 +191,10 @@ export default function NewsDetailPage() {
         console.warn("fetchNews error:", e);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // ---------------- Автоподгонка ----------------
+  // ---------- автоподгонка ----------
   useEffect(() => {
     function adjustHeights() {
       if (!mainRef.current) return;
@@ -223,7 +213,7 @@ export default function NewsDetailPage() {
     return () => window.removeEventListener("resize", adjustHeights);
   }, [loading, latest, related]);
 
-  // ---------------- Рендер ----------------
+  // ---------- рендер ----------
   if (loading)
     return (
       <div className={s.pageWrap}>
@@ -238,8 +228,7 @@ export default function NewsDetailPage() {
       </div>
     );
 
-  const categoryName =
-    news?.categories?.[0]?.name || news?.source?.name || "Новости";
+  const categoryName = news?.categories?.[0]?.name || news?.source?.name || "Новости";
 
   return (
     <div className={s.pageWrap}>
@@ -265,22 +254,14 @@ export default function NewsDetailPage() {
 
       <article className={s.main} ref={mainRef}>
         <div className={s.breadcrumbs}>
-          <Link to="/" className={s.breadcrumbLink}>
-            Главная
-          </Link>
+          <Link to="/" className={s.breadcrumbLink}>Главная</Link>
           <span className={s.breadcrumbSep}>›</span>
           {news.source ? (
-            <Link
-              to={`/news/source/${news.source.slug}`}
-              className={s.breadcrumbLink}
-            >
+            <Link to={`/news/source/${news.source.slug}`} className={s.breadcrumbLink}>
               {news.source.name}
             </Link>
           ) : (
-            <Link
-              to={`/category/${news.categories?.[0]?.slug || "news"}`}
-              className={s.breadcrumbLink}
-            >
+            <Link to={`/category/${news.categories?.[0]?.slug || "news"}`} className={s.breadcrumbLink}>
               {categoryName}
             </Link>
           )}
@@ -295,25 +276,22 @@ export default function NewsDetailPage() {
           {views || 0} просмотров
         </div>
 
-        {news.cover_image && (
-          <img src={news.cover_image} alt="" className={s.cover} />
+        {(news.cover_image || news.image) && (
+          <img
+            src={news.cover_image || news.image || "/static/img/default_news.svg"}
+            alt={news.title}
+            className={s.cover}
+          />
         )}
 
         <div
           className={s.body}
-          dangerouslySetInnerHTML={{
-            __html: DOMPurify.sanitize(news.content || news.summary || ""),
-          }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(news.content || news.summary || "") }}
         />
 
         {news.link && (
           <div className={s.external}>
-            <a
-              href={news.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={s.externalLink}
-            >
+            <a href={news.link} target="_blank" rel="noopener noreferrer" className={s.externalLink}>
               Читать в источнике →
             </a>
           </div>
@@ -334,7 +312,7 @@ export default function NewsDetailPage() {
             className={s.relItem}
           >
             <img
-              src={n.image || "/static/img/default_news.svg"}
+              src={n.image || n.cover_image || "/static/img/default_news.svg"}
               alt=""
               className={s.relThumb}
             />

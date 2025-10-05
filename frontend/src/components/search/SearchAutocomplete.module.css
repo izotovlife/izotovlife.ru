@@ -1,39 +1,112 @@
 /* frontend/src/components/search/SearchAutocomplete.module.css
-   Назначение: Стили автокомплита поиска. Ничего особенного — компактный выпадающий список. */
+   Назначение: Стили выпадающего автопоиска с миниатюрами, подсветкой и разделителями. */
 
-.wrap { position: relative; width: 100%; max-width: 520px; }
+.wrap {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+}
+
 .input {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
   background: #0b0d11;
-  border: 1px solid rgba(255,255,255,.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #e8eaee;
   outline: none;
+  font-size: 15px;
 }
-.input:focus { border-color: rgba(96,165,250,.5); }
 
+.input:focus {
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+/* --- Выпадающий список --- */
 .dropdown {
   position: absolute;
   top: 110%;
-  left: 0; right: 0;
+  left: 0;
+  right: 0;
   background: #0f1115;
-  border: 1px solid rgba(255,255,255,.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   overflow: hidden;
-  z-index: 40;
+  z-index: 2000; /* ✅ теперь поверх шапки */
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+  max-height: 420px;
+  overflow-y: auto;
 }
 
+/* --- Пункт новости --- */
 .item {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   padding: 10px 12px;
   text-decoration: none;
   color: #e8eaee;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  transition: background 0.2s ease;
 }
-.item:last-child { border-bottom: 0; }
-.item:hover { background: rgba(255,255,255,.04); }
-.title { font-size: 14px; line-height: 1.25; }
-.meta { margin-top: 4px; font-size: 12px; color: #9aa4b2; }
 
-.empty { padding: 12px; color: #9aa4b2; font-size: 14px; }
+.item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* --- Миниатюра --- */
+.thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.thumbPlaceholder {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #999;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.textBlock {
+  flex: 1;
+}
+
+.title {
+  font-size: 14px;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.meta {
+  font-size: 12px;
+  color: #9aa4b2;
+}
+
+/* --- Разделитель между пунктами --- */
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 10px;
+}
+
+/* --- Состояния --- */
+.empty {
+  padding: 12px;
+  text-align: center;
+  color: #9aa4b2;
+  font-size: 14px;
+}
+
+/* --- Подсветка совпадений --- */
+mark {
+  background: transparent;
+  color: #3ea6ff;
+  font-weight: 600;
+}

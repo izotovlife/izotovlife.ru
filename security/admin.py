@@ -1,14 +1,21 @@
-# backend/security/admin.py
-# Назначение: Просмотр одноразовых токенов.
 # Путь: backend/security/admin.py
+# Назначение: Регистрация AdminSessionToken в админке (только просмотр).
 
 from django.contrib import admin
 from .models import AdminSessionToken
 
 @admin.register(AdminSessionToken)
 class AdminSessionTokenAdmin(admin.ModelAdmin):
-    list_display = ('token', 'user', 'used', 'created_at')
-    list_filter = ('used_at',)  # ✅ теперь указываем поле, а не property
-    readonly_fields = ('token', 'user', 'created_at', 'used_at')
+    list_display = ("user", "token", "created_at", "used_at")
+    search_fields = ("user__username", "token")
+    readonly_fields = ("user", "token", "created_at", "used_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 
 

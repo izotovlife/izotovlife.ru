@@ -1,9 +1,11 @@
-# Путь: backend/news/serializers.py
+# backend/news/serializers.py
 # Назначение: Сериализаторы для категорий, статей, импортированных новостей и общий сериализатор News.
 # Исправления:
 #   - ✅ Добавлены seo_url и category_display для фронта.
-#   - ✅ Ссылки теперь формируются по /news/<category>/<slug>/ и /news/<source>/<slug>/.
-#   - ✅ Ничего не удалено из текущего функционала.
+#   - ✅ Ссылки формируются по /news/<category>/<slug>/ и /news/source/<source>/<slug>/.
+#   - ✅ Стабильный тип ("type") для обоих сериализаторов.
+#   - ✅ ImportedNewsSerializer.source берётся из source_fk.
+#   - ✅ Безопасный абсолютный image-URL для ImportedNews.
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
@@ -31,7 +33,7 @@ class CategorySerializer(serializers.ModelSerializer):
             .first()
         )
         if news and news.image:
-            return news.image  # у тебя это CharField/URLField
+            return news.image  # URLField/CharField — уже абсолютный/относительный URL
 
         # Если нет — берём самую свежую Article с обложкой
         art = (
@@ -68,6 +70,12 @@ class ArticleSerializer(serializers.ModelSerializer):
             "type", "seo_url", "category_display",
         ]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # стабильно возвращаем тип
+        data["type"] = "article"
+        return data
+
     def get_summary(self, obj):
         return (obj.content[:200] + "...") if obj.content else ""
 
@@ -93,9 +101,11 @@ class NewsSourceSerializer(serializers.ModelSerializer):
 
 class ImportedNewsSerializer(serializers.ModelSerializer):
     """Сериализатор импортированных новостей (RSS)."""
-    source = NewsSourceSerializer(read_only=True)
+    # ВАЖНО: читаем источник из связи source_fk
+    source = NewsSourceSerializer(source="source_fk", read_only=True)
     seo_url = serializers.SerializerMethodField()
     category_display = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = ImportedNews
@@ -105,12 +115,44 @@ class ImportedNewsSerializer(serializers.ModelSerializer):
             "type", "source", "seo_url", "category_display",
         ]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # стабильно возвращаем тип
+        data["type"] = "rss"
+        return data
+
+    def get_image(self, obj):
+        """
+        Возвращает абсолютный URL картинки:
+        • если это ImageField — через .url
+        • если это строка/URLField — возвращаем как есть
+        • если есть request — делаем build_absolute_uri
+        """
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+
+        # Абсолютные URL — оставляем как есть
+        if isinstance(obj.image, str) and obj.image.startswith(("http://", "https://")):
+            return obj.image
+
+        # File/ImageField
+        if hasattr(obj.image, "url"):
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+
+        # Строковый путь (например, "/media/news/img.jpg")
+        if isinstance(obj.image, str):
+            return request.build_absolute_uri(obj.image) if request else obj.image
+
+        return None
+
     def get_seo_url(self, obj):
         try:
             return obj.seo_path
         except Exception:
-            src_slug = obj.source_fk.slug if obj.source_fk else "source"
-            return f"/news/{src_slug}/{obj.slug}/"
+            # корректный префикс "source/"
+            src_slug = getattr(getattr(obj, "source_fk", None), "slug", None) or "source"
+            return f"/news/source/{src_slug}/{obj.slug}/"
 
     def get_category_display(self, obj):
         if obj.category:

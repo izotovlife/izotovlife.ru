@@ -1,76 +1,76 @@
-# backend/security/views.py
-# Назначение: Вьюхи для защищённого входа в админку через одноразовый токен.
 # Путь: backend/security/views.py
+# Назначение: Обычные Django-вьюхи (НЕ DRF). Логин суперпользователя и одноразовая «дверь».
 
+import json
 import secrets
-from django.shortcuts import redirect, get_object_or_404
-from django.contrib.auth import login
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotFound, HttpResponseRedirect
+from django.contrib.auth import authenticate, login
 from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
-from django.http import JsonResponse, HttpResponseForbidden
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
 
 from .models import AdminSessionToken
 
+SESSION_FLAG = getattr(settings, "SECURITY_ADMIN_SESSION_KEY", "admin_internal_allowed")
+ADMIN_INTERNAL_URL = getattr(settings, "ADMIN_INTERNAL_URL", "/_internal_admin/")
 
-def admin_entrypoint(request, token):
-    """
-    GET /api/security/admin-entry/<token>/
-    Используется для входа по одноразовому токену.
-    Авторизует суперпользователя и редиректит в /admin/.
-    """
-    token_obj = get_object_or_404(AdminSessionToken, token=token)
-
-    # Уже использован → на главную
-    if token_obj.used_at:
-        return redirect("/")
-
-    # Истёк → удаляем и запрещаем доступ
-    if token_obj.is_expired():
-        token_obj.delete()
-        return HttpResponseForbidden("Токен устарел")
-
-    # Логиним суперпользователя (явно указываем backend!)
-    user = token_obj.user
-    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-
-    # Помечаем токен как использованный
-    token_obj.used_at = timezone.now()
-    token_obj.save(update_fields=["used_at"])
-
-    # Отмечаем сессию, что можно в админку
-    request.session[settings.SECURITY_ADMIN_SESSION_KEY] = True
-
-    # ✅ В DEV редиректим на http://localhost:8000/admin/
-    if settings.DEBUG:
-        return redirect("http://localhost:8000/admin/")
-    # ✅ В PROD — относительный путь
-    return redirect("/admin/")
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@csrf_exempt
+@require_POST
 def admin_session_login(request):
     """
     POST /api/security/admin-session-login/
-    Для фронта: создаёт одноразовый токен и возвращает admin_url.
-    Работает только для суперпользователей.
+      body JSON: {"username": "...", "password": "..."}
+    Возвращает: {"ok": true, "redirect": "/admin/<token>/"}
     """
-    user = request.user
-    if not user.is_superuser:
-        return JsonResponse({"detail": "Нет прав"}, status=403)
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return HttpResponseBadRequest("Invalid JSON")
+
+    username = (data.get("username") or "").strip()
+    password = (data.get("password") or "").strip()
+    if not username or not password:
+        return HttpResponseBadRequest("username/password required")
+
+    user = authenticate(request, username=username, password=password)
+    if not user or not user.is_superuser:
+        return HttpResponseBadRequest("Invalid credentials or not a superuser")
+
+    # Авторизуем сессию
+    login(request, user)
 
     # Создаём одноразовый токен
-    token = secrets.token_urlsafe(32)
+    token = secrets.token_urlsafe(48)
     AdminSessionToken.objects.create(user=user, token=token)
 
-    # ✅ DEBUG → полный URL (чтобы фронт открыл бэкенд)
-    # ✅ PROD → домен из SITE_DOMAIN
-    if settings.DEBUG:
-        admin_url = f"http://localhost:8000/api/security/admin-entry/{token}/"
-    else:
-        base = settings.SITE_DOMAIN.rstrip("/")
-        admin_url = f"{base}/api/security/admin-entry/{token}/"
+    # Возвращаем редирект на «дверь»
+    return JsonResponse({"ok": True, "redirect": f"/admin/{token}/"})
 
-    return JsonResponse({"admin_url": admin_url})
+
+def admin_token_gate(request, token: str):
+    """
+    GET /admin/<token>/
+      - валидный, неиспользованный и не просроченный токен → ставим флаг в сессию и редиректим на /_internal_admin/
+      - иначе → 404
+    """
+    try:
+        t = AdminSessionToken.objects.select_related("user").get(token=token)
+    except AdminSessionToken.DoesNotExist:
+        return HttpResponseNotFound("<h1>Not Found</h1>")
+
+    # Проверка неиспользованности и срока жизни (5 минут)
+    if t.used_at is not None:
+        return HttpResponseNotFound("<h1>Not Found</h1>")
+    if timezone.now() > t.created_at + timezone.timedelta(minutes=5):
+        return HttpResponseNotFound("<h1>Not Found</h1>")
+
+    # Отмечаем токен использованным
+    t.used_at = timezone.now()
+    t.save(update_fields=["used_at"])
+
+    # Ставим флаг доступа в сессию — именно тот, что в settings.SECURITY_ADMIN_SESSION_KEY
+    request.session[SESSION_FLAG] = True
+
+    # Внутренняя админка
+    return HttpResponseRedirect(ADMIN_INTERNAL_URL)

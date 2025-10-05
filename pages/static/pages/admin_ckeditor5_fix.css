@@ -1,0 +1,57 @@
+/* Путь: backend/pages/static/pages/admin_ckeditor5_fix.css
+ * Назначение: Повысить контраст текста/фона и задать адекватную высоту в CKEditor 5
+ * на форме StaticPage (только здесь, чтобы не трогать другие модели).
+ */
+
+body.model-staticpage .ck.ck-editor__editable,
+body.model-staticpage .ck-content {
+  color: #0f172a !important;      /* тёмный текст в светлой теме */
+  background: #ffffff !important; /* белый фон */
+  min-height: 320px !important;   /* комфортная высота поля */
+  line-height: 1.7 !important;
+  font-size: 15px !important;
+}
+
+/* Плейсхолдер */
+body.model-staticpage .ck-content.ck-placeholder::before {
+  color: rgba(0,0,0,.38) !important;
+}
+
+/* Фокус/границы */
+body.model-staticpage .ck.ck-editor__main > .ck-editor__editable:not(.ck-focused) {
+  border-color: rgba(0,0,0,.15) !important;
+}
+body.model-staticpage .ck.ck-editor__main > .ck-editor__editable.ck-focused {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37,99,235,.25) !important;
+}
+
+/* Тёмная тема */
+@media (prefers-color-scheme: dark) {
+  body.model-staticpage .ck.ck-editor__editable,
+  body.model-staticpage .ck-content {
+    background: #161616 !important;
+    color: #f3f4f6 !important;
+    caret-color: #ffffff !important;
+  }
+  body.model-staticpage .ck-content.ck-placeholder::before {
+    color: rgba(255,255,255,.55) !important;
+  }
+  body.model-staticpage .ck.ck-editor__main > .ck-editor__editable:not(.ck-focused) {
+    border-color: rgba(255,255,255,.22) !important;
+  }
+}
+
+/* Блоки в тексте */
+body.model-staticpage .ck-content blockquote {
+  border-left: 3px solid rgba(0,0,0,.35);
+  background: rgba(0,0,0,.04);
+  padding: .6em 1em;
+  margin: .8em 0;
+}
+@media (prefers-color-scheme: dark) {
+  body.model-staticpage .ck-content blockquote {
+    border-left-color: rgba(255,255,255,.5);
+    background: rgba(255,255,255,.06);
+  }
+}
