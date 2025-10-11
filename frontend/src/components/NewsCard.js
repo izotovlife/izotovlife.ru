@@ -1,13 +1,20 @@
 // Путь: frontend/src/components/NewsCard.js
-// Назначение: Карточка новости для ленты. Ссылки всегда строятся по seo_url.
+// Назначение: Карточка новости для ленты (в стиле Дзена, SEO-ready).
+// Обновление:
+//   ✅ Источник теперь берётся корректно из source_name, source_fk, link (без RSS).
+//   ✅ Повышена устойчивость к невалидным данным.
+//   ✅ Полностью совместимо с SourceBadge и темами.
+//   ✅ Добавлено: плавное появление карточек при скролле и мягкий градиент под текстом.
+//   ✅ [SEO] Основной путь теперь /<category>/<slug>, с fallback на старые /news/... схемы.
 
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import s from "./NewsCard.module.css";
 import SourceBadge from "./SourceBadge";
 import placeholder from "../assets/default_news.svg";
 
-// утилита хоста (для строкового источника без фото)
+// -------------------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ --------------------
+
 function hostName(url) {
   try {
     const u = new URL(url);
@@ -21,10 +28,61 @@ function hostName(url) {
   }
 }
 
+// Унифицированное получение источника
+function resolveSource(item) {
+  const sourceObj =
+    item.source ||
+    item.news_source ||
+    item.source_fk ||
+    item.publisher_obj ||
+    null;
+
+  const sourceUrl =
+    sourceObj?.site_url ||
+    sourceObj?.url ||
+    sourceObj?.link ||
+    item.source_url ||
+    item.site_url ||
+    item.link_source ||
+    item.original_link ||
+    item.original_url ||
+    item.link ||
+    item.url ||
+    null;
+
+  const sourceNameRaw =
+    item.source_name ||
+    item.source_title ||
+    item.publisher ||
+    item.sourceDomain ||
+    sourceObj?.name ||
+    sourceObj?.title ||
+    null;
+
+  let sourceName = null;
+  if (sourceNameRaw && sourceNameRaw.toLowerCase() !== "rss") {
+    sourceName = sourceNameRaw;
+  } else {
+    sourceName = hostName(sourceUrl) || "Источник";
+  }
+
+  return {
+    name: sourceName,
+    site_url: sourceUrl,
+    logo:
+      item.source_logo ||
+      sourceObj?.logo ||
+      sourceObj?.image ||
+      sourceObj?.icon ||
+      null,
+  };
+}
+
+// -------------------- ОСНОВНОЙ ХУК --------------------
+
 function useNormalized(item) {
   return useMemo(() => {
     const id = item.id ?? item.pk ?? item._id ?? null;
-
     const title = item.title || item.headline || item.name || "Без названия";
 
     const slug =
@@ -39,71 +97,47 @@ function useNormalized(item) {
       item.category_slug ||
       item.category?.slug ||
       item.category?.seo_slug ||
+      item.categories?.[0]?.slug ||
       null;
 
-    // 🟢 Унифицированное построение ссылки
+    // ✅ SEO-ссылка /<category>/<slug> с fallback’ами
     let detailTo = "#";
     if (item.seo_url) {
-      // ✅ главный приоритет — seo_url (в API оно уже готовое)
+      // если backend уже прислал готовый seo_url
       detailTo = item.seo_url;
     } else if (categorySlug && slug) {
-      detailTo = `/news/${categorySlug}/${slug}`;
+      // основной путь
+      detailTo = `/${categorySlug}/${slug}`;
     } else if (slug) {
+      // старый fallback /news/<slug>
       detailTo = `/news/${slug}`;
     } else if (id) {
+      // совсем fallback
       detailTo = `/news/${id}`;
     }
 
     const cover =
-      item.cover_image || item.image_url || item.image || item.thumbnail || null;
-
-    const sourceObj =
-      item.source || item.news_source || item.source_fk || item.publisher_obj || null;
-
-    const sourceUrl =
-      sourceObj?.site_url ||
-      sourceObj?.url ||
-      sourceObj?.link ||
-      item.source_url ||
-      item.site_url ||
-      item.link_source ||
-      item.original_link ||
-      item.original_url ||
-      item.link ||
+      item.cover_image ||
+      item.image_url ||
+      item.image ||
+      item.thumbnail ||
       null;
 
-    const sourceNameRaw =
-      item.source_name ||
-      item.source_title ||
-      item.publisher ||
-      item.sourceDomain ||
-      sourceObj?.name ||
-      sourceObj?.title ||
-      null;
-
-    const source =
-      sourceObj || {
-        name: sourceNameRaw || (sourceUrl ? hostName(sourceUrl) : null),
-        site_url: sourceUrl,
-        logo:
-          item.source_logo ||
-          sourceObj?.logo ||
-          sourceObj?.image ||
-          sourceObj?.icon ||
-          null,
-      };
+    const source = resolveSource(item);
 
     const date =
       item.published_at || item.pub_date || item.created_at || item.date || null;
 
     const categoryName = item.category_name || item.category?.name || null;
 
-    return { id, title, detailTo, cover, source, date, categoryName, sourceUrl };
+    return { id, title, detailTo, cover, source, date, categoryName };
   }, [item]);
 }
 
+// -------------------- КОМПОНЕНТ --------------------
+
 export default function NewsCard({ item, badgeAlign = "right" }) {
-  const { title, detailTo, cover, source, date, categoryName, sourceUrl } =
+  const { title, detailTo, cover, source, date, categoryName } =
     useNormalized(item);
 
   const dateStr = useMemo(() => {
@@ -122,15 +156,25 @@ export default function NewsCard({ item, badgeAlign = "right" }) {
   }, [date]);
 
   const hasCover = Boolean(cover);
-  const sourceText =
-    typeof source === "string"
-      ? source
-      : source?.name ||
-        source?.title ||
-        (sourceUrl ? hostName(sourceUrl) : "Источник");
+
+  // -------------------- ДОБАВЛЕНО --------------------
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        el.classList.add(s.visible);
+        observer.disconnect();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  // ---------------------------------------------------
 
   return (
-    <article className={s.card}>
+    <article ref={ref} className={`${s.card} news-card`}>
       <Link to={detailTo} className={s.mediaWrap} aria-label={title}>
         <img
           className={s.media}
@@ -144,7 +188,7 @@ export default function NewsCard({ item, badgeAlign = "right" }) {
         {hasCover ? (
           <SourceBadge
             source={source}
-            href={sourceUrl || undefined}
+            href={source.site_url || undefined}
             align={badgeAlign}
             insideLink
           />
@@ -159,7 +203,7 @@ export default function NewsCard({ item, badgeAlign = "right" }) {
         {!hasCover ? (
           <div className={s.sourceLine}>
             <span className={s.sourceDot} />
-            <span className={s.sourceText}>{sourceText}</span>
+            <span className={s.sourceText}>{source.name}</span>
           </div>
         ) : null}
 

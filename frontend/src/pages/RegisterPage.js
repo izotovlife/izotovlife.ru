@@ -1,128 +1,197 @@
-// frontend/src/pages/RegisterPage.js
-// Назначение: Форма регистрации нового пользователя.
-// Добавлены функции генерации, показа/скрытия и копирования сложного пароля.
-// После успешной регистрации выводится сообщение "Проверьте почту для активации аккаунта".
-// Путь: frontend/src/pages/RegisterPage.js
+// Путь: frontend/src/pages/NewsDetailPage.js
+// Назначение: Детальная страница новости (Article или ImportedNews)
+// Исправления:
+//   ✅ Возвращён CSS Grid (ширины колонок стабильные).
+//   ✅ Добавлен ResizeObserver: левая/правая колонки всегда равны по высоте центральной.
+//   ✅ Убран useMemo (не будет ESLint-ошибок).
+//   ✅ Футер остаётся на месте, адаптив сохранён.
 
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { register } from "../Api";
+import React, { useEffect, useState, useRef } from "react";
+import { useParams, Link } from "react-router-dom";
+import DOMPurify from "dompurify";
+import s from "./NewsDetailPage.module.css";
 
-export default function RegisterPage() {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [message, setMessage] = useState(null);
+import { fetchRelated, fetchArticle, fetchNews, hitMetrics } from "../Api";
+
+// Заглушка для отсутствующих изображений
+const PLACEHOLDER =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#0a0f1a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#5a6b84" font-family="Arial" font-size="18">Нет изображения</text></svg>'
+  );
+
+export default function NewsDetailPage() {
+  const params = useParams();
+  const [item, setItem] = useState(null);
+  const [latest, setLatest] = useState([]);
+  const [related, setRelated] = useState([]);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
 
-  // Генерация случайного пароля
-  const generatePassword = () => {
-    const length = 16;
-    const charset =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+[]{}<>?";
-    let pass = "";
-    const array = new Uint32Array(length);
-    window.crypto.getRandomValues(array);
-    for (let i = 0; i < length; i++) {
-      pass += charset[array[i] % charset.length];
+  // refs для трёх колонок
+  const leftRef = useRef(null);
+  const mainRef = useRef(null);
+  const rightRef = useRef(null);
+
+  // === Загрузка данных ===
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const slug = params?.slug;
+        if (!slug) throw new Error("slug не найден в параметрах");
+
+        const article = await fetchArticle(slug);
+        if (cancelled) return;
+        setItem(article);
+
+        const [lastRes, relRes] = await Promise.all([
+          fetchNews(1),
+          fetchRelated(slug),
+        ]);
+        if (cancelled) return;
+
+        setLatest(lastRes || []);
+        setRelated(relRes || []);
+
+        hitMetrics(slug).catch(() => {});
+      } catch (e) {
+        console.error(e);
+        if (!cancelled)
+          setError(e?.message || "Ошибка загрузки новости");
+      }
     }
-    setPassword(pass);
-  };
 
-  // Копирование пароля
-  const copyPassword = async () => {
-    try {
-      await navigator.clipboard.writeText(password);
-      setMessage("Пароль скопирован в буфер обмена!");
-    } catch (err) {
-      setError("Не удалось скопировать пароль");
-    }
-  };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [params?.slug]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setMessage(null);
+  // === Выравнивание высоты колонок под центральную (устойчиво к подгрузке изображений) ===
+  useEffect(() => {
+    if (!mainRef.current || !leftRef.current || !rightRef.current) return;
 
-    try {
-      await register({ username, email, password });
-      setMessage("Регистрация прошла успешно! Проверьте почту для активации аккаунта.");
-      // Можно перенаправить через несколько секунд:
-      setTimeout(() => navigate("/login"), 4000);
-    } catch (err) {
-      console.error("Ошибка регистрации:", err);
-      setError(err?.response?.data || "Ошибка регистрации. Попробуйте снова.");
-    }
-  };
+    const syncHeights = () => {
+      const h = mainRef.current.offsetHeight;
+      leftRef.current.style.height = `${h}px`;
+      rightRef.current.style.height = `${h}px`;
+    };
+
+    // следим за изменением размеров центральной колонки
+    const ro = new ResizeObserver(syncHeights);
+    ro.observe(mainRef.current);
+
+    // пересчитываем при ресайзе
+    window.addEventListener("resize", syncHeights);
+
+    // первичный расчёт
+    syncHeights();
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", syncHeights);
+    };
+  }, [item, latest, related]);
+
+  // === Ошибка ===
+  if (error) {
+    return (
+      <div className={`news-detail ${s.pageWrap}`}>
+        <div className={s.main}>
+          <h1 className={s.title}>Ошибка</h1>
+          <div className={s.body}>{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!item) return null;
+
+  // === Данные для рендера ===
+  const imageSrc = item.image || item.cover_image || item.cover || PLACEHOLDER;
+  const sourceTitle = item.source_title || item.source || "";
+  const externalUrl = item.original_url || item.link || item.url || null;
+  const text = item.content || item.summary || "";
+  const contentHtml = DOMPurify.sanitize(text, { USE_PROFILES: { html: true } });
 
   return (
-    <div className="max-w-md mx-auto mt-10 bg-[var(--bg-card)] p-6 rounded-xl shadow">
-      <h1 className="text-xl font-bold mb-4 text-white">Регистрация</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          placeholder="Логин"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="w-full p-2 rounded border border-gray-600 bg-transparent text-white"
-          required
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2 rounded border border-gray-600 bg-transparent text-white"
-          required
-        />
-        <div className="relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Пароль"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 rounded border border-gray-600 bg-transparent text-white pr-20"
-            required
+    <div className={`news-detail ${s.pageWrap}`}>
+      {/* Левая колонка — последние новости */}
+      <aside className={s.leftAside} ref={leftRef}>
+        <div className={s.sectionH}>Последние новости</div>
+        <div className={s.latestList}>
+          {latest.map((n) => (
+            <Link
+              key={`l-${n.id || n.slug}`}
+              to={n.seo_url || `/news/${n.slug}/`}
+              className={s.latestItem}
+            >
+              {n.title}
+            </Link>
+          ))}
+        </div>
+      </aside>
+
+      {/* Центральная колонка — контент */}
+      <main className={s.main} ref={mainRef}>
+        <h1 className={s.title}>{item.title}</h1>
+
+        <div className={s.meta}>
+          {item.pub_date_fmt || item.published_at || item.date || ""}
+          {sourceTitle ? " • " + sourceTitle : ""}
+        </div>
+
+        {imageSrc && (
+          <img src={imageSrc} alt={item.title} className={s.cover} />
+        )}
+
+        {(item.summary || item.content) && (
+          <div
+            className={s.body}
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
-          <div className="absolute right-2 top-2 flex space-x-2">
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="px-2 py-1 bg-gray-700 text-xs rounded text-white"
+        )}
+
+        {externalUrl && (
+          <div className={s.external}>
+            <a
+              className={s.externalLink}
+              href={externalUrl}
+              target="_blank"
+              rel="noreferrer"
             >
-              {showPassword ? "Скрыть" : "Показать"}
-            </button>
-            <button
-              type="button"
-              onClick={copyPassword}
-              className="px-2 py-1 bg-gray-700 text-xs rounded text-white"
-            >
-              Копировать
-            </button>
+              Читать в источнике →
+            </a>
           </div>
-        </div>
-        <div className="flex space-x-2">
-          <button
-            type="button"
-            onClick={generatePassword}
-            className="flex-1 py-2 bg-yellow-600 hover:bg-yellow-700 rounded text-white font-bold"
-          >
-            Сгенерировать пароль
-          </button>
-        </div>
+        )}
+      </main>
 
-        {error && <div className="text-red-400 text-sm">{JSON.stringify(error)}</div>}
-        {message && <div className="text-green-400 text-sm">{message}</div>}
-
-        <button
-          type="submit"
-          className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded text-white font-bold"
-        >
-          Зарегистрироваться
-        </button>
-      </form>
+      {/* Правая колонка — похожие новости */}
+      <aside className={s.rightAside} ref={rightRef}>
+        <div className={s.sectionH}>Похожие новости</div>
+        <div className={s.relList}>
+          {related.map((n) => (
+            <Link
+              key={`r-${n.id || n.slug}`}
+              to={n.seo_url || `/news/${n.slug}/`}
+              className={s.relItem}
+            >
+              <img
+                className={s.relThumb}
+                src={n.image || PLACEHOLDER}
+                alt=""
+              />
+              <div>
+                <div className={s.relTitle}>{n.title}</div>
+                <div className={s.relSource}>
+                  {n.source_title || n.source || ""}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }

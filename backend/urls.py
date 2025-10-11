@@ -1,6 +1,5 @@
-# backend/urls.py
-# Назначение: Корневой роутинг Django-проекта (включая sitemap.xml, robots.txt, API, JWT и соц.авторизацию).
 # Путь: backend/urls.py
+# Назначение: Корневой роутинг Django-проекта (включая sitemap.xml, robots.txt, API, JWT и соц.авторизацию).
 
 from django.contrib import admin
 from django.urls import path, include
@@ -14,6 +13,8 @@ from news.sitemaps import (
     ArticleSitemap,
     ImportedNewsSitemap,
 )
+
+from news.views import CategoryListView  # ✅ добавили импорт, чтобы можно было отдать /api/categories/
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -41,7 +42,10 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
 
     # --- News ---
-    path("api/news/", include(("news.urls", "news"), namespace="news")),
+    path("api/", include(("news.urls", "news"), namespace="news")),
+
+    # ✅ Прямой путь для категорий без /news/
+    path("api/categories/", CategoryListView.as_view(), name="categories_short"),
 
     # --- Security (уникальная ссылка для админки) ---
     path("api/security/", include(("security.urls", "security"), namespace="security")),
@@ -50,8 +54,16 @@ urlpatterns = [
     path("api/pages/", include(("pages.urls", "pages"), namespace="pages")),
 
     # --- Robots / Sitemap ---
-    path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
-    path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
+    path(
+        "robots.txt",
+        TemplateView.as_view(template_name="robots.txt", content_type="text/plain"),
+    ),
+    path(
+        "sitemap.xml",
+        sitemap,
+        {"sitemaps": sitemaps},
+        name="django.contrib.sitemaps.views.sitemap",
+    ),
 ]
 
 # ✅ Раздача медиафайлов в режиме разработки

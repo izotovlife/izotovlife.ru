@@ -1,9 +1,12 @@
 // Путь: frontend/src/App.js
-// Назначение: Корневой компонент SPA с SEO-маршрутами под Django backend.
-// Обновления:
-//   • Поддержка SEO-путей: /news/:category/:slug и /news/source/:source/:slug
-//   • Поддержка короткого пути /news/:slug → resolve через API
-//   • Совместимость со старыми путями /rss/:slug и /news/imported/...
+// Назначение: Корневой компонент SPA IzotovLife с поддержкой коротких SEO-путей.
+// Исправлено:
+//   ✅ Категории теперь открываются по /<slug>/ (например /politika/).
+//   ✅ /categories отображает сетку всех категорий.
+//   ✅ Старые пути /news/category/... и /category/... редиректят на новый формат.
+//   ✅ Удалён несуществующий импорт CategoriesPage.js.
+//   ✅ Правильный порядок маршрутов (специфические → общие).
+//   ✅ Полная совместимость с Django backend.
 
 import React from "react";
 import {
@@ -19,20 +22,26 @@ import Footer from "./components/Footer";
 import HeaderInfo from "./components/HeaderInfo";
 
 import FeedPage from "./pages/FeedPage";
-import CategoryPage from "./pages/CategoryPage";
+import CategoryPage from "./pages/CategoryPage"; // ✅ единый компонент категорий
 import NewsDetailPage from "./pages/NewsDetailPage";
 import SearchPage from "./pages/SearchPage";
 import AuthorPage from "./pages/AuthorPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import StaticPage from "./pages/StaticPage";
+import SuggestPage from "./pages/SuggestPage";
 
-// Универсальный редирект для старых путей
+// --- Редиректы для старых URL ---
 function RedirectToCleanNews() {
   const location = useLocation();
-  const parts = location.pathname.split("/");
+  const parts = location.pathname.split("/").filter(Boolean);
   const slug = parts[parts.length - 1];
-  return <Navigate to={`/news/${slug}`} replace />;
+  return <Navigate to={`/${slug}/`} replace />;
+}
+
+function RedirectOldCategory() {
+  const slug = window.location.pathname.split("/").pop();
+  return <Navigate to={`/${slug}/`} replace />;
 }
 
 export default function App() {
@@ -43,23 +52,31 @@ export default function App() {
         <HeaderInfo compact={true} />
 
         <Routes>
-          {/* Главная лента */}
+          {/* 🏠 Главная страница */}
           <Route path="/" element={<FeedPage />} />
 
-          {/* Категории */}
-          <Route path="/categories" element={<CategoryPage />} />
-          <Route path="/category/:slug" element={<CategoryPage />} />
+          {/* 🗂️ Старые пути категорий → редирект */}
+          <Route path="/news/category/:slug" element={<RedirectOldCategory />} />
+          <Route path="/category/:slug" element={<RedirectOldCategory />} />
 
-          {/* Поиск и автор */}
+          {/* 🔍 Поиск, авторы и прочие страницы */}
           <Route path="/search" element={<SearchPage />} />
           <Route path="/author/:id" element={<AuthorPage />} />
 
-          {/* ✅ SEO-маршруты новостей */}
-          <Route path="/news/:category/:slug" element={<NewsDetailPage />} />
+          {/* 📰 Детальные новости (для обратной совместимости) */}
           <Route path="/news/source/:source/:slug" element={<NewsDetailPage />} />
+          <Route path="/news/:category/:slug" element={<NewsDetailPage />} />
           <Route path="/news/:slug" element={<NewsDetailPage />} />
 
-          {/* ===== Легаси-редиректы ===== */}
+          {/* ✅ Новые короткие пути */}
+          {/* Категории верхнего уровня */}
+          <Route path="/categories" element={<CategoryPage />} />
+          <Route path="/:slug/" element={<CategoryPage />} />
+
+          {/* Детальные новости по коротким путям (например /politika/rossiya-startuet/) */}
+          <Route path="/:category/:slug/" element={<NewsDetailPage />} />
+
+          {/* ===== Легаси редиректы ===== */}
           <Route path="/rss/:slug" element={<RedirectToCleanNews />} />
           <Route path="/news/a/:slugOrId" element={<RedirectToCleanNews />} />
           <Route path="/news/i/:slugOrId" element={<RedirectToCleanNews />} />
@@ -72,12 +89,15 @@ export default function App() {
             element={<RedirectToCleanNews />}
           />
 
-          {/* Авторизация и статические страницы */}
+          {/* 🔐 Авторизация и статические страницы */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/pages/:slug" element={<StaticPage />} />
 
-          {/* Фолбэк */}
+          {/* 📨 Предложить новость */}
+          <Route path="/suggest" element={<SuggestPage />} />
+
+          {/* 🚧 Фолбэк на главную */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 

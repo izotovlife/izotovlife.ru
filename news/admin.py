@@ -19,8 +19,8 @@ from .admin_logs import *
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "news_count")
-    prepopulated_fields = {"slug": ("name",)}
-    search_fields = ("name",)
+    prepopulated_fields = {"slug": ("name",)}  # ← автозаполнение slug из имени
+    search_fields = ("name", "slug")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -29,6 +29,24 @@ class CategoryAdmin(admin.ModelAdmin):
     def news_count(self, obj):
         return obj.news_count_value
     news_count.short_description = "Кол-во новостей"
+
+    # ✅ Автогенерация slug при сохранении (если он пустой или дефолтный)
+    def save_model(self, request, obj, form, change):
+        from django.utils.text import slugify
+        from unidecode import unidecode
+
+        if not obj.slug or obj.slug.startswith("category"):
+            base = slugify(unidecode(obj.name or ""))
+            if not base:
+                base = "news"
+            original = base
+            suffix = 2
+            while Category.objects.exclude(pk=obj.pk).filter(slug=base).exists():
+                base = f"{original}-{suffix}"
+                suffix += 1
+            obj.slug = base
+        super().save_model(request, obj, form, change)
+
 
 
 @admin.register(Article)

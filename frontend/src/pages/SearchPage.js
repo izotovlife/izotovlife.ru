@@ -1,49 +1,31 @@
-// frontend/src/pages/SearchPage.js
-// Оптимизация: debounce для запросов, загрузка пачками по 30-50.
 // Путь: frontend/src/pages/SearchPage.js
+// Назначение: Страница поиска новостей (ускоренная, адаптированная под темы, без артефактов меню).
+// Обновление:
+// ✅ Использует компонент NewsCard (единый стиль карточек, корректный вывод источника и SEO-ссылок)
+// ✅ Сохранилась подгрузка, дебаунс и очистка оверлеев
+// ✅ Убраны лишние дублирующие шаблоны
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { searchAll } from "../Api";
+import NewsCard from "../components/NewsCard";
+import s from "./SearchPage.module.css";
 
-function formatDate(dt) {
-  if (!dt) return "";
-  try {
-    return new Date(dt).toLocaleString("ru-RU");
-  } catch {
-    return dt;
-  }
-}
-
-// --- Компонент скелетона карточки ---
+// ---- Вспомогательные ----
 function SkeletonCard() {
   return (
-    <div
-      style={{
-        border: "1px solid #1f2937",
-        borderRadius: 12,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div className="skeleton" style={{ height: 150, width: "100%" }} />
-      <div
-        style={{
-          padding: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
-        <div className="skeleton" style={{ height: 14, width: "60%" }} />
-        <div className="skeleton" style={{ height: 20, width: "90%" }} />
-        <div className="skeleton" style={{ height: 16, width: "80%" }} />
+    <div className={s["search-card"]}>
+      <div className={`${s.skeleton}`} style={{ height: 160, width: "100%" }} />
+      <div className={s["card-body"]}>
+        <div className={s.skeleton} style={{ height: 14, width: "60%" }} />
+        <div className={s.skeleton} style={{ height: 20, width: "90%" }} />
+        <div className={s.skeleton} style={{ height: 16, width: "80%" }} />
       </div>
     </div>
   );
 }
 
+// ---- Основной компонент ----
 export default function SearchPage() {
   const [sp] = useSearchParams();
   const q = (sp.get("q") || "").trim();
@@ -56,52 +38,88 @@ export default function SearchPage() {
   const limit = 30;
   const [page, setPage] = useState(1);
   const offset = useMemo(() => (page - 1) * limit, [page]);
-
   const loaderRef = useRef(null);
+  const controllerRef = useRef(null);
 
-  // сброс при новом запросе
+  // ✅ Жёстко закрываем любые выезжающие меню/оверлеи
+  useEffect(() => {
+    const selectors = [
+      ".mobile-menu",
+      ".menu-overlay",
+      ".nav-overlay",
+      ".navbar-overlay",
+      ".menu-backdrop",
+      ".menu-drawer",
+      ".navbar-drawer",
+      ".burger-menu",
+      ".overlay",
+    ];
+    selectors.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        el.classList.remove("open", "active", "show", "visible");
+        el.setAttribute("aria-hidden", "true");
+        el.style.display = "none";
+      });
+    });
+    ["menu-open", "no-scroll", "overflow-hidden", "lock"].forEach((cls) => {
+      document.body.classList.remove(cls);
+      document.documentElement.classList.remove(cls);
+    });
+    const closeBtn =
+      document.querySelector("[data-close]") ||
+      document.querySelector(".menu-close, .navbar-close, .burger-close");
+    if (closeBtn) {
+      try {
+        closeBtn.click();
+      } catch {}
+    }
+  }, []);
+
+  // Сброс при новом запросе
   useEffect(() => {
     setPage(1);
     setItems([]);
   }, [q]);
 
+  // Загрузка результатов
   useEffect(() => {
+    if (!q) {
+      setItems([]);
+      setTotal(0);
+      return;
+    }
+
+    if (controllerRef.current) controllerRef.current.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
     let cancelled = false;
     const timer = setTimeout(async () => {
-      if (!q) {
-        setItems([]);
-        setTotal(0);
-        setErr("");
-        return;
-      }
-      setLoading(true);
-      setErr("");
       try {
-        const data = await searchAll(q, { limit, offset });
-        if (!cancelled) {
-          setItems((prev) =>
-            page === 1 ? data.items : [...prev, ...data.items]
-          );
-          setTotal(data.total);
+        setLoading(true);
+        const data = await searchAll(q, { limit, offset, signal: controller.signal });
+        if (!cancelled && !controller.signal.aborted) {
+          const newItems = Array.isArray(data.items) ? data.items : data.results || [];
+          setItems((prev) => (page === 1 ? newItems : [...prev, ...newItems]));
+          setTotal(data.total ?? newItems.length ?? 0);
         }
       } catch (e) {
-        if (!cancelled) {
-          setErr(e?.message || "Ошибка запроса");
-          setItems([]);
-          setTotal(0);
+        if (!cancelled && e.name !== "AbortError") {
+          setErr(e?.message || "Ошибка загрузки результатов");
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !controller.signal.aborted) setLoading(false);
       }
-    }, 300); // debounce 300 мс
+    }, 250);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      controller.abort();
     };
   }, [q, offset, page, limit]);
 
-  // IntersectionObserver
+  // Бесконечная подгрузка
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -116,101 +134,21 @@ export default function SearchPage() {
   }, [loading, items, total]);
 
   return (
-    <main style={{ maxWidth: 1100, margin: "16px auto", padding: "0 16px" }}>
-      <h1 style={{ margin: "0 0 12px" }}>Поиск</h1>
-      <div style={{ color: "#666", marginBottom: 16 }}>
-        Запрос: <b>{q || "—"}</b>{" "}
-        {total ? `(найдено: ${total})` : ""}
+    <main className={s["search-page"]}>
+      <h1>Поиск</h1>
+      <div className={s["search-info"]}>
+        Запрос: <b>{q || "—"}</b> {total ? <span>(найдено: {total})</span> : null}
       </div>
 
-      {err && <div style={{ color: "crimson" }}>Ошибка: {err}</div>}
+      {err && <div className={s.error}>Ошибка: {err}</div>}
       {!loading && !err && q && total === 0 && <div>Ничего не найдено.</div>}
-      {!q && <div>Введите запрос в строке поиска вверху.</div>}
+      {!q && <div>Введите запрос в строке поиска выше.</div>}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          gap: 16,
-        }}
-      >
-        {items.map((it) => (
-          <article
-            key={it.id || it.slug || it.source_url}
-            style={{
-              border: "1px solid #1f2937",
-              borderRadius: 12,
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {it.image ? (
-              <img
-                src={it.image}
-                alt=""
-                style={{ width: "100%", height: 150, objectFit: "cover" }}
-                loading="lazy"
-              />
-            ) : null}
-
-            <div
-              style={{
-                padding: 12,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
-              <div style={{ fontSize: 14, color: "#888" }}>
-                {it.source || (it.type === "rss" ? "RSS" : "Автор")}
-                {it.published_at ? ` • ${formatDate(it.published_at)}` : ""}
-              </div>
-
-              <h3 style={{ margin: 0, fontSize: 18, lineHeight: 1.25 }}>
-                {it.title}
-              </h3>
-
-              {it.type === "rss" && it.source_url ? (
-                <a
-                  href={it.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    color: "#1a73e8",
-                    fontSize: 14,
-                    textDecoration: "underline",
-                  }}
-                >
-                  Читать в источнике →
-                </a>
-              ) : it.type === "article" && it.slug ? (
-                <Link
-                  to={`/article/${it.slug}`}
-                  style={{
-                    color: "#1a73e8",
-                    fontSize: 14,
-                    textDecoration: "underline",
-                  }}
-                >
-                  Подробнее →
-                </Link>
-              ) : null}
-
-              {it.summary ? (
-                <p style={{ margin: 0, color: "#ccc" }}>
-                  {it.summary.slice(0, 220)}
-                  {it.summary.length > 220 ? "…" : ""}
-                </p>
-              ) : null}
-            </div>
-          </article>
+      <div className={s["search-grid"]}>
+        {items.map((it, idx) => (
+          <NewsCard key={`${it.id ?? it.slug ?? idx}-${idx}`} item={it} />
         ))}
-
-        {loading &&
-          Array.from({ length: 6 }).map((_, idx) => (
-            <SkeletonCard key={`s-${idx}`} />
-          ))}
+        {loading && Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
 
       {items.length < total && !loading && <div ref={loaderRef} />}

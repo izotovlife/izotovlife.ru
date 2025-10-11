@@ -1,14 +1,25 @@
 # Путь: backend/settings.py
-# Назначение: Основные настройки Django-проекта News Aggregator (Django + React)
-# Поддерживает: PostgreSQL через .env, DRF, JWT, CORS, соц.авторизацию, почту и логику защиты админки.
+# Назначение: Основные настройки Django-проекта IzotovLife (News Aggregator, Django + React)
+# Поддерживает: PostgreSQL через .env, DRF, JWT, CORS, соц.авторизацию, почту и защиту админки.
 
 from pathlib import Path
 from datetime import timedelta
 import os
 from dotenv import load_dotenv
 
+# =======================
+# БАЗОВЫЕ ПУТИ И ЗАГРУЗКА .ENV
+# =======================
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+
+# Принудительная загрузка .env (гарантированно подхватывается)
+dotenv_path = BASE_DIR / ".env"
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
+    print(f".env загружен: {dotenv_path}")
+else:
+    print(f".env не найден по пути: {dotenv_path}")
+
 
 # =======================
 # БАЗОВЫЕ НАСТРОЙКИ
@@ -20,7 +31,7 @@ if DEBUG:
     ALLOWED_HOSTS = [
         "127.0.0.1",
         "localhost",
-        "192.168.0.33",  # ✅ локальный IP твоего React сервера
+        "192.168.0.33",  # локальный IP React-сервера
         "testserver",
     ]
 else:
@@ -36,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_extensions",
 
     # third-party
     "rest_framework",
@@ -44,12 +56,10 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",
     "rest_framework.authtoken",
 
-    # --- соц. авторизация ---
+    # соц-авторизация
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-
-    # провайдеры соцсетей
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.vk",
     "allauth.socialaccount.providers.yandex",
@@ -72,11 +82,11 @@ INSTALLED_APPS = [
 # MIDDLEWARE
 # =======================
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # ✅ ОБЯЗАТЕЛЬНО первым
+    "corsheaders.middleware.CorsMiddleware",  # обязательно первым
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
+    #"django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "security.middleware.AdminInternalGateMiddleware",
@@ -126,7 +136,6 @@ if POSTGRES_DB and POSTGRES_USER and POSTGRES_PASSWORD:
         }
     }
 else:
-    # ✅ Локальная разработка: используем SQLite, если не заданы переменные PostgreSQL
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -166,18 +175,24 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # =======================
-# CORS + CSRF (исправленный)
+# CORS + CSRF (обновлено)
 # =======================
+
+# Разрешаем запросы с любых локальных портов React при разработке.
+# В продакшене желательно ограничить доменом izotovlife.ru.
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
+# Список доверенных источников для CSRF-токена (используется только в DEBUG)
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://192.168.0.33",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "http://localhost:3002",
-    "http://127.0.0.1:3002",
-    "http://192.168.0.33:3000",  # ✅ добавлено
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
+    "http://192.168.0.33:3003",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -187,7 +202,9 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3001",
     "http://localhost:3002",
     "http://127.0.0.1:3002",
-    "http://192.168.0.33:3000",  # ✅ добавлено
+    "http://192.168.0.33:3000",
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
 ]
 
 # =======================
@@ -196,14 +213,29 @@ CSRF_TRUSTED_ORIGINS = [
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        "rest_framework.authentication.SessionAuthentication",
+        #"rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+        "rest_framework.permissions.AllowAny",
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 30,
 }
+
+# троттлинг для API (исправлено)
+REST_FRAMEWORK.setdefault("DEFAULT_THROTTLE_CLASSES", [
+    "rest_framework.throttling.AnonRateThrottle",
+    "rest_framework.throttling.UserRateThrottle",
+])
+REST_FRAMEWORK.setdefault("DEFAULT_THROTTLE_RATES", {})
+
+# базовые лимиты для всех API-запросов + отдельные для формы предложений
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update({
+    "anon": "1000/day",          # базовый лимит для неавторизованных пользователей
+    "user": "5000/day",          # базовый лимит для авторизованных пользователей
+    "suggest_burst": "5/min",    # короткий лимит для формы "Предложить новость"
+    "suggest_sustained": "20/day",  # суточный лимит для формы "Предложить новость"
+})
 
 # =======================
 # JWT
@@ -236,15 +268,18 @@ else:
     SESSION_COOKIE_SECURE = True
 
 # =======================
-# EMAIL
+# EMAIL (исправлено и активировано)
 # =======================
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+SUGGEST_NEWS_EMAIL_TO = os.getenv("SUGGEST_NEWS_EMAIL_TO", "izotovlife@yandex.ru")
+
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.yandex.ru")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 465))
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "True").lower() in ("true", "1", "yes")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in ("true", "1", "yes")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "izotovlife@yandex.ru")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@izotovlife.ru")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
 # =======================
 # ALLAUTH

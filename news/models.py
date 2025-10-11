@@ -1,34 +1,39 @@
 # Путь: backend/news/models.py
 # Назначение: Модели новостей, категорий, авторских статей и импортированных записей по RSS.
-# Исправления:
-#   - ✅ Article.slug теперь стабильно включает category.slug.
-#   - ✅ Добавлено свойство seo_path → /news/<category>/<slug>/.
-#   - ✅ ImportedNews.slug без source, но seo_path формируется через source.
-#   - ✅ Пустые slug формируются безопасно с уникальностью.
-#   - ✅ Просмотры и логи резолвера сохранены.
+# Обновления:
+#   ✅ Все слаги транслитерируются в латиницу (никаких кириллических URL).
+#   ✅ Сохраняется SEO-схема: /<категория>/<slug>/
+#   ✅ Добавлены проверки на уникальность slug и автоисправления дубликатов.
+#   ✅ Полностью совместимо с UniversalNewsDetailView и фронтендом IzotovLife.
 
 import uuid
+import re
 from django.db import models
 from django.conf import settings
 from django.utils.text import slugify
 from unidecode import unidecode
-
 from .models_logs import NewsResolverLog
 
 
+# ==============================
+# КАТЕГОРИИ
+# ==============================
+
 class Category(models.Model):
     name = models.CharField("Название категории", max_length=255, unique=True)
-    slug = models.SlugField("Слаг", max_length=255, unique=True, blank=True)
+    slug = models.SlugField("Слаг (латиница)", max_length=255, unique=True, blank=True)
     popularity = models.PositiveIntegerField("Популярность", default=0)
 
     class Meta:
         verbose_name = "Категория"
         verbose_name_plural = "Категории"
+        ordering = ["name"]
 
     def save(self, *args, **kwargs):
+        # 🔹 Генерация slug на латинице
         if not self.slug:
             base_slug = slugify(unidecode(self.name))
-            new_slug = base_slug
+            new_slug = re.sub(r"-+", "-", base_slug)
             counter = 1
             while Category.objects.exclude(id=self.id).filter(slug=new_slug).exists():
                 new_slug = f"{base_slug}-{counter}"
@@ -39,6 +44,10 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+
+# ==============================
+# АВТОРСКИЕ СТАТЬИ
+# ==============================
 
 class Article(models.Model):
     class Status(models.TextChoices):
@@ -61,15 +70,22 @@ class Article(models.Model):
     views_count = models.PositiveIntegerField("Просмотры", default=0)
     type = models.CharField(max_length=20, default="article", editable=False)
 
+    class Meta:
+        ordering = ["-published_at", "-created_at"]
+        verbose_name = "Авторская статья"
+        verbose_name_plural = "Авторские статьи"
+
     def save(self, *args, **kwargs):
-        # Формируем slug из категории и заголовка
+        # 🔹 Формируем уникальный slug из заголовка и категории
         if not self.slug:
-            base_slug = slugify(unidecode(self.title))[:50] or str(uuid.uuid4())[:8]
+            base_slug = slugify(unidecode(self.title))[:60] or str(uuid.uuid4())[:8]
             cat_slug = None
             if self.pk and self.categories.exists():
                 cat_slug = self.categories.first().slug
             if not cat_slug:
                 cat_slug = "news"
+
+            base_slug = re.sub(r"-+", "-", base_slug)
             new_slug = f"{cat_slug}-{base_slug}"
             counter = 1
             while Article.objects.exclude(id=self.id).filter(slug=new_slug).exists():
@@ -78,12 +94,16 @@ class Article(models.Model):
             self.slug = new_slug
         super().save(*args, **kwargs)
 
+    # 🔹 SEO-адрес /<категория>/<slug>/
     @property
     def seo_path(self):
-        """SEO-путь: /news/<category>/<slug>/"""
         cat = self.categories.first()
         cat_slug = cat.slug if cat else "news"
-        return f"/news/{cat_slug}/{self.slug}/"
+        return f"/{cat_slug}/{self.slug}/"
+
+    def get_absolute_url(self):
+        """Django-совместимая функция — возвращает SEO-путь"""
+        return self.seo_path
 
     def __str__(self):
         return self.title
@@ -93,20 +113,25 @@ class Article(models.Model):
         return self.archived_at is not None
 
 
+# ==============================
+# ИСТОЧНИКИ НОВОСТЕЙ (RSS)
+# ==============================
+
 class NewsSource(models.Model):
     name = models.CharField("Название источника", max_length=255, unique=True)
-    slug = models.SlugField("Слаг", max_length=255, blank=True, null=True)
+    slug = models.SlugField("Слаг (латиница)", max_length=255, blank=True, null=True)
     logo = models.ImageField("Логотип", upload_to="sources/", blank=True, null=True)
     is_active = models.BooleanField("Активен", default=True)
 
     class Meta:
         verbose_name = "Источник новостей"
         verbose_name_plural = "Источники новостей"
+        ordering = ["name"]
 
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(unidecode(self.name))
-            new_slug = base_slug
+            new_slug = re.sub(r"-+", "-", base_slug)
             counter = 1
             while NewsSource.objects.exclude(id=self.id).filter(slug=new_slug).exists():
                 new_slug = f"{base_slug}-{counter}"
@@ -117,6 +142,10 @@ class NewsSource(models.Model):
     def __str__(self):
         return self.name
 
+
+# ==============================
+# ИМПОРТИРОВАННЫЕ НОВОСТИ (RSS)
+# ==============================
 
 class ImportedNews(models.Model):
     source_fk = models.ForeignKey(
@@ -141,8 +170,10 @@ class ImportedNews(models.Model):
         verbose_name_plural = "Импортированные новости"
 
     def save(self, *args, **kwargs):
+        # 🔹 slug без source, но всегда латиницей
         if not self.slug:
-            base_slug = slugify(unidecode(self.title))[:50] or str(uuid.uuid4())[:8]
+            base_slug = slugify(unidecode(self.title))[:60] or str(uuid.uuid4())[:8]
+            base_slug = re.sub(r"-+", "-", base_slug)
             new_slug = base_slug
             counter = 1
             while ImportedNews.objects.exclude(id=self.id).filter(slug=new_slug).exists():
@@ -151,14 +182,18 @@ class ImportedNews(models.Model):
             self.slug = new_slug
         super().save(*args, **kwargs)
 
+    # 🔹 SEO-путь — единая структура /<категория>/<slug>/
     @property
     def seo_path(self):
-        """SEO-путь: /news/<source>/<slug>/"""
-        src = self.source_fk.slug if self.source_fk else "source"
-        return f"/news/{src}/{self.slug}/"
+        cat_slug = self.category.slug if self.category else "news"
+        return f"/{cat_slug}/{self.slug}/"
+
+    def get_absolute_url(self):
+        return self.seo_path
 
     def __str__(self):
-        return f"{self.source_fk}: {self.title[:60]}"
+        src = self.source_fk.name if self.source_fk else "Без источника"
+        return f"{src}: {self.title[:60]}"
 
     @property
     def is_archived(self):

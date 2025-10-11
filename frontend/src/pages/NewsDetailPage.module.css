@@ -1,212 +1,197 @@
 /* Путь: frontend/src/pages/NewsDetailPage.module.css
-   Назначение: Стили детальной страницы новости (Article или RSS).
-   Обновления:
-     • Центральный блок по высоте только по контенту (без flex-grow).
-     • Боковые блоки подгоняются по высоте JS.
-     • Убраны fade-затемнения и полосы прокрутки.
-     • Футер всегда на одинаковом расстоянии.
+   Назначение: Стили детальной страницы новости IzotovLife.
+   Исправления:
+     ✅ CSS Grid с фиксированными колонками и max-width контейнера.
+     ✅ Боковые колонки скроллятся внутри, если контент длиннее центральной.
+     ✅ Ограничена высота изображения, чтобы не раздувало центральную колонку.
+     ✅ Футер остаётся видимым.
 */
 
-:root {
-  --bg-card: #0e1a2b;
-  --fg: #ffffff;
-  --border: rgba(255, 255, 255, 0.08);
-  --muted: rgba(255, 255, 255, 0.6);
-  --accent: rgb(249, 200, 92);
-}
-
-/* ОБЩАЯ СТРАНИЦА */
-.pageContainer {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-.pageContent {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
 .pageWrap {
+  /* 280 + 760 + 280 + 2*20 = 1360 */
+  max-width: 1360px;
+  margin: 0 auto;
+
   display: grid;
-  grid-template-columns: 300px minmax(640px, 760px) 300px;
+  grid-template-columns: 280px 760px 280px;
   gap: 20px;
   justify-content: center;
   align-items: start;
   padding: 20px;
+  width: 100%;
+  position: static;
+  height: auto;
+  overflow: visible;
+  box-sizing: border-box;
+  margin-bottom: 80px;
 }
 
-/* ЛЕВАЯ КОЛОНКА */
-.leftAside {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px;
+/* все три колонки — flex-контейнеры */
+.pageWrap > * {
   display: flex;
   flex-direction: column;
 }
+
+/* Левая колонка */
+.leftAside {
+  background: var(--bg-card, #0f1115);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-radius: 14px;
+  padding: 14px;
+
+  /* ⬇ ключ: если контент длиннее, прокручиваем внутри */
+  overflow-y: auto;
+  min-height: 0; /* нужно для корректного скролла в гриде */
+}
+
 .sectionH {
   font-size: 18px;
-  margin: 0 0 8px;
-  color: var(--fg);
   font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--fg, #fff);
 }
+
 .latestList {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.latestItem {
-  font-size: 15px;
-  color: var(--fg);
-  text-decoration: none;
-  line-height: 1.35;
-  border-bottom: 1px solid var(--border);
-  padding: 6px 0;
-  transition: color 0.2s ease;
-}
-.latestItem:hover {
-  color: var(--accent);
+  /* flex-grow не нужен, высота задана из JS; излишек — прокрутка */
 }
 
-/* ЦЕНТРАЛЬНЫЙ */
+.latestItem {
+  font-size: 15px;
+  color: var(--fg, #fff);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.1));
+  padding-bottom: 6px;
+  transition: color 0.2s ease;
+}
+
+.latestItem:hover {
+  color: var(--accent, #3ea6ff);
+}
+
+/* Центральная колонка */
 .main {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--bg-card, #0f1115);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
   border-radius: 14px;
-  padding: 18px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
 }
-.breadcrumbs {
-  font-size: 14px;
-  margin-bottom: 10px;
-  color: var(--muted);
-}
-.breadcrumbLink {
-  color: var(--accent);
-  text-decoration: none;
-}
-.breadcrumbLink:hover {
-  text-decoration: underline;
-}
-.breadcrumbSep {
-  margin: 0 6px;
-  opacity: 0.6;
-}
-.breadcrumbCurrent {
-  color: var(--fg);
-  opacity: 0.9;
-}
+
 .title {
   font-size: 23px;
   line-height: 1.3;
-  margin: 8px 0 8px;
   font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--fg, #fff);
 }
+
 .meta {
   font-size: 14px;
-  color: var(--muted);
-  margin-bottom: 8px;
+  color: var(--muted, rgba(255,255,255,0.7));
+  margin-bottom: 12px;
 }
+
 .cover {
   width: 100%;
-  max-height: 440px;
+  height: auto;
+  max-height: 520px; /* ограничение по высоте фотографии */
+  border-radius: 10px;
+  margin-bottom: 12px;
   object-fit: cover;
-  border-radius: 12px;
-  background: #0a0f1a;
-  margin: 10px 0 16px;
-  display: block;
 }
+
 .body {
   font-size: 17px;
   line-height: 1.6;
-  margin-top: 8px;
-  white-space: pre-wrap;
-  /* flex-grow убран! */
+  color: var(--fg, #ddd);
+  margin-bottom: 12px;
+  flex-grow: 1;
 }
+
+/* Ссылка "Читать в источнике" */
 .external {
-  margin-top: 10px;
+  margin-top: auto;
+}
+
+.externalLink {
+  color: var(--accent, #f9c85c);
+  text-decoration: none;
   font-size: 15px;
 }
-.externalLink {
-  color: var(--accent);
-  text-decoration: none;
-}
+
 .externalLink:hover {
   text-decoration: underline;
 }
 
-/* ПРАВАЯ КОЛОНКА */
+/* Правая колонка */
 .rightAside {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--bg-card, #0f1115);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
   border-radius: 14px;
   padding: 12px;
   display: flex;
   flex-direction: column;
+
+  /* ⬇ тоже скроллим внутри при переполнении */
+  overflow-y: auto;
+  min-height: 0;
 }
+
+.relList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .relItem {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  margin-bottom: 8px;
   text-decoration: none;
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 10px;
+  padding: 8px;
   transition: background 0.2s ease;
 }
+
 .relItem:hover {
-  background: color-mix(in oklab, var(--bg-card) 85%, black 15%);
+  background: color-mix(in srgb, var(--bg-card) 90%, black 10%);
 }
+
 .relThumb {
   width: 60px;
   height: 60px;
-  object-fit: cover;
   border-radius: 8px;
+  object-fit: cover;
   background: #0a0f1a;
-  flex-shrink: 0;
 }
+
 .relTitle {
   font-size: 14px;
+  color: var(--fg, #fff);
   line-height: 1.35;
-  color: var(--fg);
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  margin-bottom: 3px;
 }
+
 .relSource {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted, rgba(255,255,255,0.7));
 }
 
-/* ФУТЕР */
-footer {
-  margin-top: auto;
-  padding: 20px;
-  text-align: center;
-  background: #0a0f1a;
-  color: var(--muted);
-  border-top: 1px solid var(--border);
-}
-
-/* АДАПТИВ */
+/* Адаптив: на мобильном показываем только центральную колонку */
 @media (max-width: 960px) {
   .pageWrap {
     grid-template-columns: 1fr;
+    max-width: 760px;
+    margin-bottom: 60px;
   }
   .leftAside,
   .rightAside {
     display: none;
   }
-  .main {
-    padding: 14px;
-  }
-  .cover {
-    max-height: 340px;
-  }
 }
-

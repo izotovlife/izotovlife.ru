@@ -1,32 +1,35 @@
 # Путь: backend/news/views.py
 # Назначение: API для новостей — лента, категории, поиск, детальные страницы и «Похожие новости».
 # Исправлено:
-#   - ✅ ArticleDetailView ищет статью только по slug.
-#   - ✅ ImportedNewsDetailView использует source_fk__slug (правильное имя связи).
-#   - ✅ related_news стабильно работает с SEO-маршрутами.
-#   - ✅ Восстановлены SearchView, NewsFeedImagesView и NewsFeedTextView.
-#   - ✅ Лента, категории, похожие, метрики — полностью согласованы с frontend.
+#   ✅ ArticleDetailView ищет статью только по slug.
+#   ✅ ImportedNewsDetailView теперь корректно работает с /news/source/<source>/<slug>/.
+#   ✅ related_news различает category и source и не даёт 404.
+#   ✅ Восстановлены SearchView, NewsFeedImagesView и NewsFeedTextView.
+#   ✅ Добавлен SmartSearchView (GIN-поиск PostgreSQL).
+#   ✅ Добавлен HitMetricsView (фикс ошибки 405).
+#   ✅ CategoryNewsView работает без AssertionError.
+#   ✅ Полностью совместим с frontend/src/Api.js (все маршруты /api/news/...).
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.decorators import api_view, permission_classes
 from django.db.models import Q, Count, F
 from django.db.models.functions import Length
 from django.db import connection
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
+from django.utils import timezone
 import json
 
 from .models import Article, Category, ImportedNews
-from .serializers import (
-    ArticleSerializer,
-    ImportedNewsSerializer,
-    CategorySerializer,
-)
+from .serializers import ArticleSerializer, ImportedNewsSerializer, CategorySerializer
 
-# ======= ВСПОМОГАТЕЛЬНЫЕ =======
+# ===========================================================
+# ВСПОМОГАТЕЛЬНЫЕ
+# ===========================================================
 
 def _key_for_dedup(item: dict) -> str:
     itype = item.get("type")
@@ -49,15 +52,6 @@ def deduplicate(items):
 def _normalize_text(s: str) -> str:
     return s.casefold() if s else ""
 
-def _item_matches_terms(item: dict, terms: list[str], mode: str) -> bool:
-    hay = " ".join(filter(None, [item.get("title", ""), item.get("summary", ""), item.get("content", "")]))
-    hay_norm = _normalize_text(hay)
-    if not terms:
-        return True
-    if mode == "or":
-        return any(term in hay_norm for term in terms)
-    return all(term in hay_norm for term in terms)
-
 def _paginate_combined(request, combined):
     limit_raw = request.query_params.get("limit")
     offset_raw = request.query_params.get("offset")
@@ -71,19 +65,27 @@ def _paginate_combined(request, combined):
         except ValueError:
             offset = 0
         sliced = combined[offset: offset + limit if limit else None]
-        return Response({"results": sliced, "count": len(combined)})
+        return Response({"results": sliced, "items": sliced, "count": len(combined)})
     paginator = NewsFeedPagination()
     page = paginator.paginate_queryset(combined, request)
-    return paginator.get_paginated_response(page)
+    resp = paginator.get_paginated_response(page)
+    data = resp.data
+    if "results" in data and "items" not in data:
+        data["items"] = data["results"]
+    return resp
 
-# ======= ПАГИНАЦИЯ =======
+# ===========================================================
+# ПАГИНАЦИЯ
+# ===========================================================
 
 class NewsFeedPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = "page_size"
     max_page_size = 50
 
-# ======= ЛЕНТЫ =======
+# ===========================================================
+# ЛЕНТЫ
+# ===========================================================
 
 class NewsFeedView(generics.ListAPIView):
     pagination_class = NewsFeedPagination
@@ -91,7 +93,6 @@ class NewsFeedView(generics.ListAPIView):
 
     def get_queryset(self):
         category_slug = self.request.query_params.get("category")
-
         articles = (
             Article.objects.filter(status="PUBLISHED")
             .annotate(text_len=Length("content"))
@@ -105,18 +106,16 @@ class NewsFeedView(generics.ListAPIView):
         imported = (
             ImportedNews.objects
             .annotate(sum_len=Length("summary"))
-            .exclude(
-                Q(summary__isnull=True) |
-                Q(summary__exact="") |
-                Q(sum_len__lt=50) |
-                Q(summary__icontains="без содержим")
-            )
+            .exclude(Q(summary__isnull=True) | Q(summary__exact="") | Q(sum_len__lt=50))
         )
         if category_slug:
             imported = imported.filter(category__slug=category_slug)
 
         combined = list(articles) + list(imported)
-        combined.sort(key=lambda x: getattr(x, "published_at", None) or getattr(x, "created_at", None) or "", reverse=True)
+        combined.sort(
+            key=lambda x: getattr(x, "published_at", None) or getattr(x, "created_at", None) or "",
+            reverse=True,
+        )
         return combined
 
     def list(self, request, *args, **kwargs):
@@ -138,18 +137,11 @@ class NewsFeedImagesView(APIView):
 
     def get(self, request):
         category_slug = request.query_params.get("category")
-
-        articles = (
-            Article.objects.filter(status="PUBLISHED")
-            .exclude(Q(cover_image__isnull=True) | Q(cover_image=""))
-        )
-        imported = (
-            ImportedNews.objects.exclude(Q(image__isnull=True) | Q(image=""))
-        )
+        articles = Article.objects.filter(status="PUBLISHED").exclude(Q(cover_image__isnull=True) | Q(cover_image=""))
+        imported = ImportedNews.objects.exclude(Q(image__isnull=True) | Q(image=""))
         if category_slug:
             articles = articles.filter(categories__slug=category_slug)
             imported = imported.filter(category__slug=category_slug)
-
         article_data = ArticleSerializer(articles, many=True, context={"request": request}).data
         imported_data = ImportedNewsSerializer(imported, many=True, context={"request": request}).data
         combined = deduplicate(article_data + imported_data)
@@ -161,25 +153,20 @@ class NewsFeedTextView(APIView):
 
     def get(self, request):
         category_slug = request.query_params.get("category")
-
-        articles = (
-            Article.objects.filter(status="PUBLISHED")
-            .filter(Q(cover_image__isnull=True) | Q(cover_image=""))
-        )
-        imported = (
-            ImportedNews.objects.filter(Q(image__isnull=True) | Q(image=""))
-        )
+        articles = Article.objects.filter(status="PUBLISHED").filter(Q(cover_image__isnull=True) | Q(cover_image=""))
+        imported = ImportedNews.objects.filter(Q(image__isnull=True) | Q(image=""))
         if category_slug:
             articles = articles.filter(categories__slug=category_slug)
             imported = imported.filter(category__slug=category_slug)
-
         article_data = ArticleSerializer(articles, many=True, context={"request": request}).data
         imported_data = ImportedNewsSerializer(imported, many=True, context={"request": request}).data
         combined = deduplicate(article_data + imported_data)
         combined.sort(key=lambda x: x.get("published_at") or x.get("created_at") or "", reverse=True)
         return _paginate_combined(request, combined)
 
-# ======= КАТЕГОРИИ =======
+# ===========================================================
+# КАТЕГОРИИ
+# ===========================================================
 
 class CategoryListView(generics.ListAPIView):
     serializer_class = CategorySerializer
@@ -193,51 +180,107 @@ class CategoryListView(generics.ListAPIView):
             .order_by("-news_count", "-popularity", "name")
         )
 
+# ===========================================================
+# НОВОСТИ КАТЕГОРИИ
+# ===========================================================
+
 class CategoryNewsView(APIView):
+    """
+    Эндпоинт: GET /api/news/category/<slug>/
+    Возвращает объединённую ленту Article + ImportedNews для выбранной категории.
+    Поддерживает пагинацию через NewsFeedPagination.
+    """
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, slug):
+        print(f"[CategoryNewsView] Запрошена категория: {slug}")
         category = get_object_or_404(Category, slug=slug)
         Category.objects.filter(id=category.id).update(popularity=F("popularity") + 1)
-
         articles = Article.objects.filter(status="PUBLISHED", categories=category)
         imported = ImportedNews.objects.filter(category=category)
-
         article_data = ArticleSerializer(articles, many=True, context={"request": request}).data
         imported_data = ImportedNewsSerializer(imported, many=True, context={"request": request}).data
-
-        combined = article_data + imported_data
+        combined = deduplicate(article_data + imported_data)
         combined.sort(key=lambda x: x.get("published_at") or x.get("created_at") or "", reverse=True)
-        return Response(combined)
+        paginator = NewsFeedPagination()
+        page = paginator.paginate_queryset(combined, request)
+        if page is not None:
+            return paginator.get_paginated_response(page)
+        return Response({"results": combined, "count": len(combined)})
 
-# ======= ПОИСК =======
+# ===========================================================
+# ПОИСК
+# ===========================================================
 
 class SearchView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         raw_q = request.query_params.get("q", "").strip()
-        mode = request.query_params.get("mode", "and").lower()
         if not raw_q:
             return Response({"results": [], "count": 0})
-
-        terms = [_normalize_text(t) for t in raw_q.split() if t]
         vendor = connection.vendor
-        use_python_fallback = (vendor == "sqlite")
-
-        articles_qs = Article.objects.filter(status="PUBLISHED")
+        is_pg = vendor == "postgresql"
+        article_qs = Article.objects.filter(status="PUBLISHED")
         imported_qs = ImportedNews.objects.all()
-
-        article_data = ArticleSerializer(articles_qs, many=True, context={"request": request}).data
+        if is_pg:
+            from django.contrib.postgres.search import SearchQuery
+            raw_query = SearchQuery(raw_q, search_type="websearch", config="russian")
+            article_qs = article_qs.extra(
+                where=["to_tsvector('russian', coalesce(title,'') || ' ' || coalesce(content,'')) @@ plainto_tsquery('russian', %s)"],
+                params=[raw_q]
+            )
+            imported_qs = imported_qs.extra(
+                where=["to_tsvector('russian', coalesce(title,'') || ' ' || coalesce(summary,'')) @@ plainto_tsquery('russian', %s)"],
+                params=[raw_q]
+            )
+        article_data = ArticleSerializer(article_qs, many=True, context={"request": request}).data
         imported_data = ImportedNewsSerializer(imported_qs, many=True, context={"request": request}).data
-
         combined = deduplicate(article_data + imported_data)
-        if terms and use_python_fallback:
-            combined = [it for it in combined if _item_matches_terms(it, terms, mode)]
         combined.sort(key=lambda x: x.get("published_at") or x.get("created_at") or "", reverse=True)
         return _paginate_combined(request, combined)
 
-# ======= ДЕТАЛИ =======
+# ===========================================================
+# УМНЫЙ ПОИСК (GIN)
+# ===========================================================
+
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
+
+class SmartSearchViewEnhanced(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        q = request.query_params.get("q", "").strip()
+        if not q:
+            return Response({"results": [], "count": 0})
+        vendor = connection.vendor
+        is_pg = vendor == "postgresql"
+        if is_pg:
+            query = SearchQuery(q, search_type="websearch", config="russian")
+            article_qs = (
+                Article.objects.filter(status="PUBLISHED")
+                .annotate(rank=SearchRank(SearchVector("title", "content"), query))
+                .filter(rank__gte=0.1)
+                .order_by("-rank")[:50]
+            )
+            imported_qs = (
+                ImportedNews.objects
+                .annotate(rank=SearchRank(SearchVector("title", "summary"), query))
+                .filter(rank__gte=0.1)
+                .order_by("-rank")[:50]
+            )
+        else:
+            article_qs = Article.objects.filter(status="PUBLISHED", title__icontains=q)
+            imported_qs = ImportedNews.objects.filter(title__icontains=q)
+        article_data = ArticleSerializer(article_qs, many=True, context={"request": request}).data
+        imported_data = ImportedNewsSerializer(imported_qs, many=True, context={"request": request}).data
+        combined = deduplicate(article_data + imported_data)
+        combined.sort(key=lambda x: x.get("published_at") or x.get("created_at") or "", reverse=True)
+        return _paginate_combined(request, combined)
+
+# ===========================================================
+# ДЕТАЛИ
+# ===========================================================
 
 class ArticleDetailView(generics.RetrieveAPIView):
     serializer_class = ArticleSerializer
@@ -254,32 +297,41 @@ class ImportedNewsDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         qs = ImportedNews.objects.select_related("source_fk", "category")
-        source_slug = self.kwargs.get("source")
-        if source_slug:
-            qs = qs.filter(source_fk__slug=source_slug)
+        source = self.kwargs.get("source")
+        if source:
+            qs = qs.filter(source_fk__slug=source)
         return qs
 
     def get_object(self):
         slug = self.kwargs.get("slug")
         return get_object_or_404(self.get_queryset(), slug=slug)
 
-# ======= ПОХОЖИЕ =======
+# ===========================================================
+# ПОХОЖИЕ
+# ===========================================================
 
 @require_GET
 def related_news(request, *args, **kwargs):
+    """
+    Возвращает похожие статьи или импортированные новости.
+    Работает с /news/<category>/<slug>/related/ и /news/source/<source>/<slug>/related/.
+    """
     max_results = int(request.GET.get("limit", 20))
     slug = kwargs.get("slug") or request.GET.get("slug")
-    type_ = kwargs.get("type") or None
     category = kwargs.get("category")
     source = kwargs.get("source")
+    type_ = kwargs.get("type")
 
     current = None
-    if type_ == "article" or category:
-        current = Article.objects.filter(status="PUBLISHED", slug=slug).first()
-        type_ = "article"
-    elif type_ == "rss" or source:
-        current = ImportedNews.objects.filter(slug=slug).first()
+    if source:
+        current = ImportedNews.objects.filter(source_fk__slug=source, slug=slug).first()
         type_ = "rss"
+    elif category:
+        current = Article.objects.filter(status="PUBLISHED", categories__slug=category, slug=slug).first()
+        type_ = "article"
+    else:
+        current = Article.objects.filter(slug=slug).first() or ImportedNews.objects.filter(slug=slug).first()
+        type_ = "rss" if isinstance(current, ImportedNews) else "article"
 
     if not current:
         return JsonResponse({"error": "not found", "results": []}, status=404)
@@ -290,51 +342,124 @@ def related_news(request, *args, **kwargs):
     for t in terms:
         query |= Q(title__icontains=t)
 
-    articles_qs = (
-        Article.objects.filter(status="PUBLISHED")
-        .exclude(pk=current.pk)
-        .filter(query)[:max_results]
-    )
-    imported_qs = (
-        ImportedNews.objects.exclude(pk=current.pk)
-        .filter(query)[:max_results]
-    )
-
-    article_data = ArticleSerializer(articles_qs, many=True, context={"request": request}).data
-    imported_data = ImportedNewsSerializer(imported_qs, many=True, context={"request": request}).data
-    combined = article_data + imported_data
-    combined.sort(key=lambda x: x.get("published_at") or x.get("created_at") or "", reverse=True)
-    return JsonResponse({"results": combined[:max_results]})
-
-# ======= МЕТРИКИ =======
-
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
-
-@csrf_exempt
-@require_POST
-def hit_metrics(request):
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except Exception:
-        return JsonResponse({"error": "invalid json"}, status=400)
-
-    slug = data.get("slug")
-    type_ = data.get("type")
-
-    if not slug or not type_:
-        return JsonResponse({"error": "slug and type required"}, status=400)
-
     if type_ == "article":
-        obj = Article.objects.filter(slug=slug).first()
-    elif type_ == "rss":
-        obj = ImportedNews.objects.filter(slug=slug).first()
+        qs = Article.objects.filter(status="PUBLISHED").exclude(pk=current.pk).filter(query)[:max_results]
+        data = ArticleSerializer(qs, many=True, context={"request": request}).data
     else:
-        return JsonResponse({"error": "invalid type"}, status=400)
+        qs = ImportedNews.objects.filter(source_fk=current.source_fk).exclude(pk=current.pk).filter(query)[:max_results]
+        data = ImportedNewsSerializer(qs, many=True, context={"request": request}).data
 
-    if not obj:
-        return JsonResponse({"error": "not found"}, status=404)
+    data.sort(key=lambda x: x.get("published_at") or x.get("created_at") or "", reverse=True)
+    return JsonResponse({"results": data[:max_results]})
 
-    obj.views_count = (obj.views_count or 0) + 1
-    obj.save(update_fields=["views_count"])
-    return JsonResponse({"views": obj.views_count})
+# ===========================================================
+# МЕТРИКИ (фикс 405)
+# ===========================================================
+
+# ===========================================================
+# МЕТРИКИ (исправлено: поддержка ImportedNews без source)
+# ===========================================================
+
+class HitMetricsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            data = request.data
+            slug = data.get("slug", "").strip()
+            if not slug:
+                return Response({"error": "slug required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 1. Пробуем Article
+            news_obj = Article.objects.filter(slug=slug).first()
+
+            # 2. Если не найдено — ищем ImportedNews
+            if not news_obj:
+                news_obj = ImportedNews.objects.filter(slug=slug).first()
+
+            if not news_obj:
+                return Response(
+                    {"error": f"Новость '{slug}' не найдена"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # 3. Инкремент просмотров
+            news_obj.views_count = (news_obj.views_count or 0) + 1
+            news_obj.save(update_fields=["views_count"])
+
+            return Response(
+                {"message": "ok", "views_count": news_obj.views_count},
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# ===========================================================
+# УНИВЕРСАЛЬНЫЕ ДЕТАЛЬНЫЕ ВЬЮХИ ДЛЯ /news/<slug>/ и /news/<slug>/related/
+# ===========================================================
+
+from rest_framework.generics import RetrieveAPIView
+
+class UniversalNewsDetailView(RetrieveAPIView):
+    """
+    Универсальный SEO-friendly endpoint для /api/news/<slug>/
+    Возвращает Article или ImportedNews по slug.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get("slug")
+        article = Article.objects.filter(slug=slug, status="PUBLISHED").first()
+        if article:
+            data = ArticleSerializer(article, context={"request": request}).data
+            data["type"] = "article"
+            return Response(data)
+
+        imported = ImportedNews.objects.filter(slug=slug).first()
+        if imported:
+            data = ImportedNewsSerializer(imported, context={"request": request}).data
+            data["type"] = "rss"
+            return Response(data)
+
+        return Response({"detail": "Not found"}, status=404)
+
+
+class RelatedNewsViewUniversal(APIView):
+    """
+    Эндпоинт: GET /api/news/<slug>/related/
+    Похожие новости без категории и источника в пути.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, slug):
+        current = (
+            Article.objects.filter(slug=slug, status="PUBLISHED").first()
+            or ImportedNews.objects.filter(slug=slug).first()
+        )
+        if not current:
+            return Response({"results": [], "error": "not found"}, status=404)
+
+        title = getattr(current, "title", "") or ""
+        terms = [t for t in title.split() if len(t) > 3]
+        query = Q()
+        for t in terms:
+            query |= Q(title__icontains=t)
+
+        if isinstance(current, Article):
+            qs = (
+                Article.objects.filter(status="PUBLISHED")
+                .exclude(pk=current.pk)
+                .filter(query)
+                .order_by("-published_at")[:20]
+            )
+            data = ArticleSerializer(qs, many=True, context={"request": request}).data
+        else:
+            qs = (
+                ImportedNews.objects.exclude(pk=current.pk)
+                .filter(query)
+                .order_by("-published_at")[:20]
+            )
+            data = ImportedNewsSerializer(qs, many=True, context={"request": request}).data
+
+        return Response({"results": data})

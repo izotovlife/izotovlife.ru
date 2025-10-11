@@ -1,0 +1,67 @@
+/* Путь: frontend/src/components/WeatherWidget.css
+   Назначение: корректное выравнивание и стабильное отображение погоды.
+   Особенности:
+   • Всегда сохраняет место под текст (не исчезает при загрузке);
+   • Иконки по центру;
+   • Текст не прыгает.
+*/
+
+.weather-widget {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  line-height: 1;
+  font-size: 14px;
+  color: #fff;
+  white-space: nowrap;
+  min-width: 240px; /* ✅ резервируем место, чтобы блок не схлопывался */
+}
+
+/* Содержимое строки погоды */
+.weather-fade {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+  font-size: inherit;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.6s ease-in;
+}
+
+/* Центрируем все элементы */
+.weather-fade strong,
+.weather-fade span,
+.weather-fade img,
+.weather-fade svg {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* Иконки, emoji и svg имеют одинаковый размер */
+.weather-fade img,
+.weather-fade svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Индикатор загрузки */
+.rotate-icon {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Плавное появление текста */
+.fade-in {
+  opacity: 1;
+  transition: opacity 0.5s ease-in;
+}

@@ -96,21 +96,39 @@ class ImportedNewsSerializer(serializers.ModelSerializer):
     source = NewsSourceSerializer(read_only=True)
     seo_url = serializers.SerializerMethodField()
     category_display = serializers.SerializerMethodField()
+    summary = serializers.SerializerMethodField()
+    external_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ImportedNews
         fields = [
-            "id", "title", "slug", "summary", "image", "link",
-            "published_at", "category", "created_at", "feed_url",
-            "type", "source", "seo_url", "category_display",
+            "id", "title", "slug",
+            "summary",  # ✅ только summary, без content
+            "image", "link", "external_url",
+            "published_at", "category", "created_at",
+            "feed_url", "type", "source",
+            "seo_url", "category_display",
         ]
+
+    def get_summary(self, obj):
+        # Возвращаем summary, как раньше (не ломаем старые данные)
+        if obj.summary:
+            return obj.summary.strip()
+        return ""
+
+    def get_external_url(self, obj):
+        # Если нет прямой ссылки — пробуем feed_url
+        if obj.link:
+            return obj.link
+        if obj.feed_url:
+            return obj.feed_url
+        return None
 
     def get_seo_url(self, obj):
         try:
             return obj.seo_path
         except Exception:
-            src_slug = obj.source_fk.slug if obj.source_fk else "source"
-            return f"/news/{src_slug}/{obj.slug}/"
+            return f"/news/{obj.slug}/"
 
     def get_category_display(self, obj):
         if obj.category:
