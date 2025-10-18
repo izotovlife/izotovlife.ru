@@ -2,9 +2,9 @@
 // Назначение: фиксированная шапка IzotovLife с логотипом, погодой, валютами,
 // поиском, категориями и боковым меню.
 // Обновлено:
-//   ✅ Удалён пункт "Главная" из бокового меню (логотип и так ведёт на /).
-//   ✅ "Категории" ведёт на страницу /categories.
-//   ✅ Добавлен "Регистрация" для неавторизованных пользователей.
+//   ✅ В выпадающем меню «Ещё» — СЕТКА КАТЕГОРИЙ с аватарками и оверлеем названия
+//   ✅ Навигация по категориям всегда на короткий путь `/<slug>/`
+//   ✅ Остальной функционал (поиск, темы, меню) сохранён
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -21,6 +21,12 @@ import SuggestNewsModal from "./SuggestNewsModal";
 import WeatherWidget from "./WeatherWidget";
 import SearchAutocomplete from "./search/SearchAutocomplete";
 import "./Navbar.css";
+
+const CAT_FALLBACK =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="280" height="160"><rect width="100%" height="100%" fill="#0a0f1a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#5a6b84" font-family="Arial" font-size="14">Категория</text></svg>'
+  );
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -39,8 +45,14 @@ export default function Navbar() {
     async function loadCategories() {
       try {
         const resp = await fetchCategories();
-        console.log("📂 Категории из API:", resp);
-        setCategories(resp);
+        setCategories(
+          Array.isArray(resp)
+            ? resp
+            : Array.isArray(resp?.results)
+            ? resp.results
+            : []
+        );
+        // console.log("📂 Категории из API:", resp);
       } catch (e) {
         console.error("Ошибка загрузки категорий:", e);
       }
@@ -48,14 +60,8 @@ export default function Navbar() {
     loadCategories();
   }, []);
 
-  const catArray = Array.isArray(categories)
-    ? categories
-    : Array.isArray(categories.results)
-    ? categories.results
-    : [];
-
-  const mainCategories = catArray.slice(0, 7);
-  const extraCategories = catArray.slice(7, 20);
+  const mainCategories = categories.slice(0, 7);
+  const extraCategories = categories.slice(7, 20);
 
   // ---------------- Пользователь ----------------
   useEffect(() => {
@@ -257,20 +263,39 @@ export default function Navbar() {
               <span className="cat-link dropdown-trigger">
                 Ещё <FaChevronDown style={{ fontSize: "0.7em" }} />
               </span>
+
               {showDropdown && (
                 <div className="dropdown-menu">
-                  {extraCategories.map((cat) => (
-                    <span
-                      key={cat.slug}
-                      className="dropdown-item"
-                      onClick={() => {
-                        setShowDropdown(false);
-                        navigate(`/${cat.slug}/`);
-                      }}
-                    >
-                      {cat.name}
-                    </span>
-                  ))}
+                  {/* ✅ Сетка категорий с аватарками и оверлеем названия */}
+                  <div className="dropdown-grid">
+                    {extraCategories.map((cat) => (
+                      <span
+                        key={cat.slug}
+                        className="dropdown-card"
+                        onClick={() => {
+                          setShowDropdown(false);
+                          navigate(`/${cat.slug}/`);
+                        }}
+                        title={cat.name}
+                        role="link"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            setShowDropdown(false);
+                            navigate(`/${cat.slug}/`);
+                          }
+                        }}
+                      >
+                        <img
+                          src={cat.top_image || CAT_FALLBACK}
+                          alt={cat.name}
+                          loading="lazy"
+                          onError={(e) => (e.currentTarget.src = CAT_FALLBACK)}
+                        />
+                        <span className="overlay">{cat.name}</span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

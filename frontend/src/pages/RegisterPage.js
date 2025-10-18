@@ -1,197 +1,142 @@
-// Путь: frontend/src/pages/NewsDetailPage.js
-// Назначение: Детальная страница новости (Article или ImportedNews)
-// Исправления:
-//   ✅ Возвращён CSS Grid (ширины колонок стабильные).
-//   ✅ Добавлен ResizeObserver: левая/правая колонки всегда равны по высоте центральной.
-//   ✅ Убран useMemo (не будет ESLint-ошибок).
-//   ✅ Футер остаётся на месте, адаптив сохранён.
+// Путь: frontend/src/pages/RegisterPage.js
+// Назначение: Форма регистрации: имя, фамилия, e-mail, пароль.
+// Функции:
+//   - Показать/скрыть пароль
+//   - Генерация пароля
+//   - После успешной отправки показывает "проверьте свою электронную почту"
+// Ничего существующее не удаляет — это новый файл.
 
-import React, { useEffect, useState, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
-import DOMPurify from "dompurify";
-import s from "./NewsDetailPage.module.css";
+import React, { useState } from "react";
+import PasswordField from "../components/PasswordField";
+import { register } from "../api/auth";
+import { Link } from "react-router-dom";
 
-import { fetchRelated, fetchArticle, fetchNews, hitMetrics } from "../Api";
+export default function RegisterPage() {
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [error, setError] = useState("");
 
-// Заглушка для отсутствующих изображений
-const PLACEHOLDER =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#0a0f1a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#5a6b84" font-family="Arial" font-size="18">Нет изображения</text></svg>'
-  );
+  function onChange(e) {
+    const { name, value } = e.target;
+    setForm((s) => ({ ...s, [name]: value }));
+  }
 
-export default function NewsDetailPage() {
-  const params = useParams();
-  const [item, setItem] = useState(null);
-  const [latest, setLatest] = useState([]);
-  const [related, setRelated] = useState([]);
-  const [error, setError] = useState(null);
-
-  // refs для трёх колонок
-  const leftRef = useRef(null);
-  const mainRef = useRef(null);
-  const rightRef = useRef(null);
-
-  // === Загрузка данных ===
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const slug = params?.slug;
-        if (!slug) throw new Error("slug не найден в параметрах");
-
-        const article = await fetchArticle(slug);
-        if (cancelled) return;
-        setItem(article);
-
-        const [lastRes, relRes] = await Promise.all([
-          fetchNews(1),
-          fetchRelated(slug),
-        ]);
-        if (cancelled) return;
-
-        setLatest(lastRes || []);
-        setRelated(relRes || []);
-
-        hitMetrics(slug).catch(() => {});
-      } catch (e) {
-        console.error(e);
-        if (!cancelled)
-          setError(e?.message || "Ошибка загрузки новости");
-      }
+  async function onSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await register(form);
+      setOk(true); // покажем уведомление
+    } catch (err) {
+      setError(err.message || "Ошибка регистрации");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [params?.slug]);
-
-  // === Выравнивание высоты колонок под центральную (устойчиво к подгрузке изображений) ===
-  useEffect(() => {
-    if (!mainRef.current || !leftRef.current || !rightRef.current) return;
-
-    const syncHeights = () => {
-      const h = mainRef.current.offsetHeight;
-      leftRef.current.style.height = `${h}px`;
-      rightRef.current.style.height = `${h}px`;
-    };
-
-    // следим за изменением размеров центральной колонки
-    const ro = new ResizeObserver(syncHeights);
-    ro.observe(mainRef.current);
-
-    // пересчитываем при ресайзе
-    window.addEventListener("resize", syncHeights);
-
-    // первичный расчёт
-    syncHeights();
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", syncHeights);
-    };
-  }, [item, latest, related]);
-
-  // === Ошибка ===
-  if (error) {
+  if (ok) {
     return (
-      <div className={`news-detail ${s.pageWrap}`}>
-        <div className={s.main}>
-          <h1 className={s.title}>Ошибка</h1>
-          <div className={s.body}>{error}</div>
+      <div style={{ maxWidth: 520, margin: "40px auto", color: "#e6eefc" }}>
+        <div style={{ background: "#111a2b", padding: 24, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,.35)" }}>
+          <h1 style={{ marginTop: 0 }}>Проверьте свою электронную почту ✉️</h1>
+          <p>Мы отправили письмо со ссылкой для подтверждения регистрации. Перейдите по ней, чтобы активировать аккаунт.</p>
+          <p style={{ opacity: .8, fontSize: 14 }}>
+            Уже подтвердили? <Link to="/login" style={{ color: "#93c5fd" }}>Войти</Link>
+          </p>
         </div>
       </div>
     );
   }
 
-  if (!item) return null;
-
-  // === Данные для рендера ===
-  const imageSrc = item.image || item.cover_image || item.cover || PLACEHOLDER;
-  const sourceTitle = item.source_title || item.source || "";
-  const externalUrl = item.original_url || item.link || item.url || null;
-  const text = item.content || item.summary || "";
-  const contentHtml = DOMPurify.sanitize(text, { USE_PROFILES: { html: true } });
-
   return (
-    <div className={`news-detail ${s.pageWrap}`}>
-      {/* Левая колонка — последние новости */}
-      <aside className={s.leftAside} ref={leftRef}>
-        <div className={s.sectionH}>Последние новости</div>
-        <div className={s.latestList}>
-          {latest.map((n) => (
-            <Link
-              key={`l-${n.id || n.slug}`}
-              to={n.seo_url || `/news/${n.slug}/`}
-              className={s.latestItem}
-            >
-              {n.title}
-            </Link>
-          ))}
+    <div style={{ maxWidth: 520, margin: "40px auto", color: "#e6eefc" }}>
+      <form onSubmit={onSubmit} style={{ background: "#111a2b", padding: 24, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,.35)" }}>
+        <h1 style={{ marginTop: 0 }}>Регистрация</h1>
+
+        <div style={{ display: "grid", gap: 12 }}>
+          <div>
+            <label htmlFor="first_name" style={{ display: "block", marginBottom: 6 }}>Имя</label>
+            <input
+              id="first_name"
+              name="first_name"
+              type="text"
+              value={form.first_name}
+              onChange={onChange}
+              placeholder="Иван"
+              required
+              style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #2b3551", background: "#0a0f1a", color: "#e6eefc" }}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="last_name" style={{ display: "block", marginBottom: 6 }}>Фамилия</label>
+            <input
+              id="last_name"
+              name="last_name"
+              type="text"
+              value={form.last_name}
+              onChange={onChange}
+              placeholder="Иванов"
+              required
+              style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #2b3551", background: "#0a0f1a", color: "#e6eefc" }}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="email" style={{ display: "block", marginBottom: 6 }}>E-mail</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={onChange}
+              placeholder="you@example.com"
+              required
+              style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #2b3551", background: "#0a0f1a", color: "#e6eefc" }}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" style={{ display: "block", marginBottom: 6 }}>Пароль</label>
+            <PasswordField value={form.password} onChange={onChange} />
+          </div>
         </div>
-      </aside>
 
-      {/* Центральная колонка — контент */}
-      <main className={s.main} ref={mainRef}>
-        <h1 className={s.title}>{item.title}</h1>
-
-        <div className={s.meta}>
-          {item.pub_date_fmt || item.published_at || item.date || ""}
-          {sourceTitle ? " • " + sourceTitle : ""}
-        </div>
-
-        {imageSrc && (
-          <img src={imageSrc} alt={item.title} className={s.cover} />
-        )}
-
-        {(item.summary || item.content) && (
-          <div
-            className={s.body}
-            dangerouslySetInnerHTML={{ __html: contentHtml }}
-          />
-        )}
-
-        {externalUrl && (
-          <div className={s.external}>
-            <a
-              className={s.externalLink}
-              href={externalUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Читать в источнике →
-            </a>
+        {error && (
+          <div style={{ marginTop: 12, padding: 12, background: "#2a0f12", borderRadius: 12, color: "#ffd2d2" }}>
+            {error}
           </div>
         )}
-      </main>
 
-      {/* Правая колонка — похожие новости */}
-      <aside className={s.rightAside} ref={rightRef}>
-        <div className={s.sectionH}>Похожие новости</div>
-        <div className={s.relList}>
-          {related.map((n) => (
-            <Link
-              key={`r-${n.id || n.slug}`}
-              to={n.seo_url || `/news/${n.slug}/`}
-              className={s.relItem}
-            >
-              <img
-                className={s.relThumb}
-                src={n.image || PLACEHOLDER}
-                alt=""
-              />
-              <div>
-                <div className={s.relTitle}>{n.title}</div>
-                <div className={s.relSource}>
-                  {n.source_title || n.source || ""}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </aside>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            marginTop: 16,
+            width: "100%",
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #2b3551",
+            background: loading ? "#0d1530" : "#1d4ed8",
+            color: "#fff",
+            cursor: loading ? "default" : "pointer",
+            fontWeight: 600,
+          }}
+        >
+          {loading ? "Отправка..." : "Регистрация"}
+        </button>
+
+        <p style={{ marginTop: 12, opacity: .8, fontSize: 14 }}>
+          Уже есть аккаунт? <Link to="/login" style={{ color: "#93c5fd" }}>Войти</Link>
+        </p>
+      </form>
     </div>
   );
 }

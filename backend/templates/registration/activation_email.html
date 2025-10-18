@@ -1,0 +1,16 @@
+<!-- Путь: backend/templates/registration/activation_email.html
+     Назначение: HTML-письмо для подтверждения регистрации -->
+<!DOCTYPE html>
+<html lang="ru">
+  <body style="font-family:Arial, sans-serif; color:#111;">
+    <h2>Здравствуйте{{ user.first_name|default:''|yesno:', ,' }}{{ user.first_name }}!</h2>
+    <p>Вы зарегистрировались на <strong>{{ site_name }}</strong>.</p>
+    <p>Для завершения регистрации нажмите кнопку ниже:</p>
+    <p>
+      <a href="{{ confirm_url }}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;">
+        Подтвердить e-mail
+      </a>
+    </p>
+    <p>Если вы не отправляли запрос на регистрацию, просто проигнорируйте это письмо.</p>
+  </body>
+</html>

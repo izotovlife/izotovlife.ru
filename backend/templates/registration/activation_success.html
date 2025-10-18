@@ -1,0 +1,25 @@
+<!-- Путь: backend/templates/registration/activation_success.html
+     Назначение: Страница после успешной активации (показывает уведомление и редиректит на /login) -->
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8"/>
+    <meta http-equiv="refresh" content="3;url={{ login_url }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Успешная регистрация</title>
+    <style>
+      body { font-family: Arial, sans-serif; background:#0b1220; color:#e6eefc; display:flex; min-height:100vh; align-items:center; justify-content:center; }
+      .card { background:#111a2b; padding:24px 28px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.35); max-width:520px; }
+      h1 { margin:0 0 8px; font-size:22px; }
+      p { margin:0 0 8px; line-height:1.55; }
+      a { color:#93c5fd; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Регистрация подтверждена ✅</h1>
+      <p>Ваш аккаунт активирован. Сейчас вы будете перенаправлены на страницу входа.</p>
+      <p>Если перенаправление не произошло автоматически, нажмите <a href="{{ login_url }}">сюда</a>.</p>
+    </div>
+  </body>
+</html>

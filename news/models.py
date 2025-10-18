@@ -147,15 +147,25 @@ class NewsSource(models.Model):
 # ИМПОРТИРОВАННЫЕ НОВОСТИ (RSS)
 # ==============================
 
+# Путь: backend/news/models.py
+# Назначение: Модели новостей, категорий, авторских статей и импортированных записей по RSS.
+# Обновления:
+#   ✅ Добавлены поля для загрузки файлов: image_file и video_file
+#   ✅ Поле link nullable, чтобы не падало при предложении новостей без ссылки
+#   ✅ Все остальное оставлено без изменений
+
 class ImportedNews(models.Model):
     source_fk = models.ForeignKey(
         NewsSource, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Источник"
     )
-    link = models.URLField("Ссылка", unique=True)
+    link = models.URLField("Ссылка", unique=True, null=True, blank=True)  # теперь nullable
     title = models.CharField("Заголовок", max_length=500)
     slug = models.SlugField("Слаг", max_length=360, unique=True, blank=True)
     summary = models.TextField("Краткое описание", blank=True, default="")
+    # Старое поле image оставим для совместимости, но теперь добавим поле загрузки
     image = models.URLField("Картинка", blank=True, default="")
+    image_file = models.ImageField("Картинка (файл)", upload_to="news_images/", null=True, blank=True)
+    video_file = models.FileField("Видео (файл)", upload_to="news_videos/", null=True, blank=True)
     published_at = models.DateTimeField("Дата публикации", null=True, blank=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField("Создано", auto_now_add=True)
@@ -170,7 +180,7 @@ class ImportedNews(models.Model):
         verbose_name_plural = "Импортированные новости"
 
     def save(self, *args, **kwargs):
-        # 🔹 slug без source, но всегда латиницей
+        # 🔹 slug без source, всегда латиницей
         if not self.slug:
             base_slug = slugify(unidecode(self.title))[:60] or str(uuid.uuid4())[:8]
             base_slug = re.sub(r"-+", "-", base_slug)
@@ -180,7 +190,28 @@ class ImportedNews(models.Model):
                 new_slug = f"{base_slug}-{counter}"
                 counter += 1
             self.slug = new_slug
+
+        # 🔹 Если link пустой, создаем уникальный UUID
+        if not self.link:
+            self.link = str(uuid.uuid4())
+
         super().save(*args, **kwargs)
+
+    @property
+    def seo_path(self):
+        cat_slug = self.category.slug if self.category else "news"
+        return f"/{cat_slug}/{self.slug}/"
+
+    def get_absolute_url(self):
+        return self.seo_path
+
+    def __str__(self):
+        src = self.source_fk.name if self.source_fk else "Без источника"
+        return f"{src}: {self.title[:60]}"
+
+    @property
+    def is_archived(self):
+        return self.archived_at is not None
 
     # 🔹 SEO-путь — единая структура /<категория>/<slug>/
     @property

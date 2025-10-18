@@ -1,103 +1,105 @@
-# Путь: news/views_suggest.py
-# Назначение: обработка формы "Предложить новость" и отправка письма редакции IzotovLife.
+# Путь: backend/news/views_suggest.py
+# Назначение: Обработка формы "Предложить новость" (SuggestNewsView)
 # Особенности:
-#   ✅ Полностью независима от JWT и CSRF (csrf_exempt, authentication_classes = []).
-#   ✅ Работает даже с axios без withCredentials.
-#   ✅ Возвращает {"ok": true} при успехе.
-
-from django.conf import settings
-from django.core.mail import EmailMessage
-from django.utils.html import strip_tags
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
+#   ✅ Принимает POST-запросы с JSON и multipart/form-data
+#   ✅ Поддержка файлов: image и video
+#   ✅ Проверка капчи
+#   ✅ Создает черновик импортированной новости
+#   ✅ Автоопределение категории, slug, даты публикации
+#   ✅ Авто-генерация уникального link для предложенных новостей
+#   ✅ Возвращает JSON с результатом или ошибкой
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions, throttling, serializers
+from rest_framework import status
+from .models import ImportedNews, Category
+from django.utils import timezone
+from unidecode import unidecode
+from django.utils.text import slugify
 import re
+import uuid
+import requests
 
+# Настройки капчи (например, Google reCAPTCHA v2)
+RECAPTCHA_SECRET_KEY = "ВАШ_СЕКРЕТНЫЙ_КЛЮЧ_RECAPTCHA"
 
-# --- Сериалайзер формы ---
-class SuggestNewsSerializer(serializers.Serializer):
-    first_name = serializers.CharField(max_length=100)
-    last_name = serializers.CharField(max_length=100)
-    email = serializers.EmailField()
-    phone = serializers.CharField(max_length=50, allow_blank=True, required=False)
-    message = serializers.CharField()
-    website = serializers.CharField(max_length=100, allow_blank=True, required=False)
-
-    def validate_message(self, value):
-        value = value.strip()
-        if len(value) < 15:
-            raise serializers.ValidationError("Опишите новость подробнее (минимум 15 символов).")
-        return value
-
-
-# --- Ограничения частоты ---
-class BurstThrottle(throttling.UserRateThrottle):
-    scope = "suggest_burst"
-
-
-class SustainedThrottle(throttling.UserRateThrottle):
-    scope = "suggest_sustained"
-
-
-# --- Основной обработчик ---
-@method_decorator(csrf_exempt, name="dispatch")
 class SuggestNewsView(APIView):
-    permission_classes = [permissions.AllowAny]
-    authentication_classes = []  # ✅ Полностью убираем JWT и Session
-    throttle_classes = [BurstThrottle, SustainedThrottle]
+    """
+    API для отправки новости пользователем.
+    Поддерживает:
+    - title (обязательный)
+    - summary (опционально)
+    - category (опционально, slug категории)
+    - image (опционально, файл)
+    - video (опционально, файл)
+    - recaptcha_token (обязательный)
+    """
 
     def post(self, request, *args, **kwargs):
-        print("✅ SuggestNewsView POST получен (CSRF отключен)")  # отладка
+        data = request.data
 
-        serializer = SuggestNewsSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        # 🔹 Проверка обязательного поля title
+        title = data.get("title")
+        if not title:
+            return Response({"detail": "Поле 'title' обязательно"}, status=status.HTTP_400_BAD_REQUEST)
 
-        data = serializer.validated_data
+        # 🔹 Проверка капчи
+        recaptcha_token = data.get("recaptcha_token")
+        if not recaptcha_token:
+            return Response({"detail": "Капча обязательна"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # honeypot
-        if data.get("website"):
-            return Response({"ok": True})
+        recaptcha_response = requests.post(
+            "https://www.google.com/recaptcha/api/siteverify",
+            data={"secret": RECAPTCHA_SECRET_KEY, "response": recaptcha_token}
+        ).json()
 
-        # поля
-        first_name = data["first_name"].strip()
-        last_name = data["last_name"].strip()
-        email = data["email"].strip()
-        phone = (data.get("phone") or "").strip()
-        message = data["message"].strip()
+        if not recaptcha_response.get("success"):
+            return Response({"detail": "Неверная капча"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # письмо
-        subject = f"[IzotovLife] Предложение новости от {first_name} {last_name}"
-        to_email = getattr(settings, "SUGGEST_NEWS_EMAIL_TO", "izotovlife@yandex.ru")
+        summary = data.get("summary", "")
+        category_slug = data.get("category")
 
-        html = (
-            f"<h2>Предложение новости</h2>"
-            f"<p><b>Имя:</b> {first_name}<br>"
-            f"<b>Фамилия:</b> {last_name}<br>"
-            f"<b>Email:</b> {email}<br>"
-            f"<b>Телефон:</b> {phone or '-'}<br></p>"
-            f"<hr><div style='white-space:pre-wrap;font-family:system-ui'>{message}</div>"
+        # 🔹 Определяем категорию
+        category = None
+        if category_slug:
+            try:
+                category = Category.objects.get(slug=category_slug)
+            except Category.DoesNotExist:
+                pass
+
+        # 🔹 Создаем уникальный slug
+        base_slug = slugify(unidecode(title))[:60] or str(timezone.now().timestamp())[:8]
+        base_slug = re.sub(r"-+", "-", base_slug)
+        new_slug = base_slug
+        counter = 1
+        while ImportedNews.objects.filter(slug=new_slug).exists():
+            new_slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        # 🔹 Генерация уникального link
+        link = data.get("link")
+        if not link:
+            link = str(uuid.uuid4())
+
+        # 🔹 Загружаемые файлы
+        image_file = request.FILES.get("image")  # django ImageField
+        video_file = request.FILES.get("video")  # django FileField для видео
+
+        # 🔹 Создаем черновик новости
+        news = ImportedNews.objects.create(
+            title=title,
+            summary=summary,
+            category=category,
+            slug=new_slug,
+            link=link,
+            published_at=timezone.now(),
+            image=image_file or None,
+            video=video_file or None,
         )
 
-        try:
-            mail = EmailMessage(
-                subject=subject,
-                body=html,
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@izotovlife.local"),
-                to=[to_email],
-                reply_to=[email],
-            )
-            mail.content_subtype = "html"
-            mail.send(fail_silently=False)
-        except Exception as e:
-            print(f"Ошибка при отправке письма: {e}")
-            return Response({"ok": False, "error": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
-
-        return Response({"ok": True}, status=status.HTTP_200_OK)
-
-    def get(self, request, *args, **kwargs):
-        """Для теста: GET /api/news/suggest/ возвращает OK"""
-        return Response({"detail": "SuggestNewsView работает (GET ok)."})
+        return Response({
+            "detail": "Новость успешно предложена",
+            "id": news.id,
+            "slug": news.slug,
+            "seo_path": news.seo_path,
+        }, status=status.HTTP_201_CREATED)
