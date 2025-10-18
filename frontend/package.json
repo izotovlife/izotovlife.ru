@@ -28,17 +28,18 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "set NODE_OPTIONS=--max-old-space-size=4096 && react-scripts start",
-    "build": "set NODE_OPTIONS=--max-old-space-size=4096 && react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
+  "start": "set NODE_OPTIONS=--max-old-space-size=4096 && react-scripts start",
+  "build": "set NODE_OPTIONS=--max-old-space-size=4096 && react-scripts build",
+  "test": "react-scripts test",
+  "eject": "react-scripts eject"
+},
+"proxy": "http://localhost:8000",
+"eslintConfig": {
+  "extends": [
+    "react-app",
+    "react-app/jest"
+  ]
+},
   "browserslist": {
     "production": [
       ">0.2%",

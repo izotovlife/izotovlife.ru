@@ -1,0 +1,132 @@
+/* Путь: frontend/src/pages/CategoryPage.module.css
+   Назначение: стили страницы категорий и одной категории.
+   Обновления производительности/UX:
+   ✅ Скелетон-анимация для карточек категорий до прихода обложки (.skeleton)
+   ✅ Название категории выровнено по центру карточки
+   ✅ Базовые стили сохранены
+*/
+
+/* Базовая обёртка */
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.breadcrumbs {
+  font-size: 0.95rem;
+  color: #aab4c6;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.breadcrumbs a { color: #aab4c6; text-decoration: none; transition: color .2s ease; }
+.breadcrumbs a:hover { color: #5aaaff; text-decoration: underline; }
+
+.title {
+  margin: 6px 0 16px 0;
+  font-size: 34px;
+  line-height: 1.2;
+  font-weight: 800;
+  color: #e6eefc;
+}
+
+/* Сетка карточек новостей (левая колонка) */
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.empty {
+  color: #999;
+  font-size: 0.95rem;
+  margin-top: 8px;
+}
+
+/* ==== Индекс категорий ==== */
+.catGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.catCard {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #0b1220;
+  height: 180px;
+  text-decoration: none;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+.catCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.35);
+  border-color: color-mix(in srgb, rgba(255,255,255,0.08) 70%, #5aaaff 30%);
+}
+
+/* скелетон, пока нет обложки */
+.skeleton {
+  background: linear-gradient(90deg, #0b1220 0%, #0f1628 50%, #0b1220 100%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 0 0; }
+  100% { background-position: -400% 0; }
+}
+
+.catImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #0a0f1a;
+  filter: saturate(1.05) contrast(1.02);
+}
+
+.catOverlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,.55) 70%, rgba(0,0,0,.75) 100%),
+    linear-gradient(0deg, rgba(0,0,0,.12), rgba(0,0,0,.12));
+}
+
+/* Текст по центру карточки */
+.catLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  text-align: center;
+  color: #f2f6ff;
+  text-shadow: 0 2px 14px rgba(0,0,0,.55);
+}
+
+.catName {
+  font-weight: 900;
+  font-size: 20px;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* адаптив */
+@media (max-width: 768px) {
+  .title { font-size: 28px; }
+  .news-grid { gap: 12px; }
+  .catGrid { gap: 12px; }
+  .catCard { height: 160px; }
+  .catName { font-size: 18px; }
+}

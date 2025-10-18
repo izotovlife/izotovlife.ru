@@ -1,19 +1,19 @@
 // Путь: frontend/src/components/NewsCard.js
 // Назначение: Карточка новости для ленты (в стиле Дзена, SEO-ready).
-// Обновление:
-//   ✅ Источник теперь берётся корректно из source_name, source_fk, link (без RSS).
-//   ✅ Повышена устойчивость к невалидным данным.
-//   ✅ Полностью совместимо с SourceBadge и темами.
-//   ✅ Добавлено: плавное появление карточек при скролле и мягкий градиент под текстом.
-//   ✅ [SEO] Основной путь теперь /<category>/<slug>, с fallback на старые /news/... схемы.
+// Обновления:
+// ✅ Никогда не показываем `//`: разбиваем заголовок на части и рендерим построчно без слэшей
+// ✅ alt/aria-label — уже без `//` (через titleForAttr)
+// ✅ НЕ отправляем MP3 в ресайзер: медиа через SmartMedia (+ buildThumbnailUrl/isAudioUrl из Api.js)
+// ✅ Preconnect + префетч изображений сохранены (только для картинок)
+// ❗ УДАЛЕНО (для исправления предупреждения ESLint): неиспользуемый стейт eagerLocal и вызов setEagerLocal(true)
 
 import React, { useMemo, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import s from "./NewsCard.module.css";
 import SourceBadge from "./SourceBadge";
-import placeholder from "../assets/default_news.svg";
-
-// -------------------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ --------------------
+import SmartMedia from "./SmartMedia";
+import { isAudioUrl, buildThumbnailUrl } from "../Api";
+import { getTitlePartsFromItem, titleForAttr } from "../utils/title";
 
 function hostName(url) {
   try {
@@ -28,14 +28,9 @@ function hostName(url) {
   }
 }
 
-// Унифицированное получение источника
 function resolveSource(item) {
   const sourceObj =
-    item.source ||
-    item.news_source ||
-    item.source_fk ||
-    item.publisher_obj ||
-    null;
+    item.source || item.news_source || item.source_fk || item.publisher_obj || null;
 
   const sourceUrl =
     sourceObj?.site_url ||
@@ -69,75 +64,62 @@ function resolveSource(item) {
   return {
     name: sourceName,
     site_url: sourceUrl,
-    logo:
-      item.source_logo ||
-      sourceObj?.logo ||
-      sourceObj?.image ||
-      sourceObj?.icon ||
-      null,
+    logo: item.source_logo || sourceObj?.logo || sourceObj?.image || sourceObj?.icon || null,
   };
 }
 
-// -------------------- ОСНОВНОЙ ХУК --------------------
+/** Нормализует относительный путь: +ведущий слэш, −двойные, +закрывающий */
+function normalizeAppPath(p) {
+  if (!p) return "/";
+  let out = String(p).trim();
+  if (/^https?:\/\//i.test(out)) return out; // абсолютные — не трогаем
+  if (!out.startsWith("/")) out = `/${out}`;
+  out = out.replace(/\/{2,}/g, "/");
+  if (!out.endsWith("/")) out = `${out}/`;
+  return out;
+}
 
 function useNormalized(item) {
   return useMemo(() => {
     const id = item.id ?? item.pk ?? item._id ?? null;
-    const title = item.title || item.headline || item.name || "Без названия";
 
-    const slug =
-      item.slug ||
-      item.seo_slug ||
-      item.url_slug ||
-      item.seourl ||
-      item.slugified ||
-      null;
+    const titleParts = getTitlePartsFromItem(item); // ← режем `//`
+    const titleAttr = titleForAttr(item?.title || "Без названия");
 
-    const categorySlug =
+    const rawSlug =
+      item.slug || item.seo_slug || item.url_slug || item.seourl || item.slugified || null;
+    const slug = rawSlug ? encodeURIComponent(String(rawSlug)) : null;
+
+    const rawCatSlug =
       item.category_slug ||
       item.category?.slug ||
       item.category?.seo_slug ||
       item.categories?.[0]?.slug ||
       null;
+    const categorySlug = rawCatSlug ? encodeURIComponent(String(rawCatSlug)) : null;
 
-    // ✅ SEO-ссылка /<category>/<slug> с fallback’ами
     let detailTo = "#";
     if (item.seo_url) {
-      // если backend уже прислал готовый seo_url
-      detailTo = item.seo_url;
+      detailTo = normalizeAppPath(item.seo_url);
     } else if (categorySlug && slug) {
-      // основной путь
-      detailTo = `/${categorySlug}/${slug}`;
+      detailTo = normalizeAppPath(`/${categorySlug}/${slug}`);
     } else if (slug) {
-      // старый fallback /news/<slug>
-      detailTo = `/news/${slug}`;
+      detailTo = normalizeAppPath(`/news/${slug}`);
     } else if (id) {
-      // совсем fallback
-      detailTo = `/news/${id}`;
+      detailTo = normalizeAppPath(`/news/${id}`);
     }
 
-    const cover =
-      item.cover_image ||
-      item.image_url ||
-      item.image ||
-      item.thumbnail ||
-      null;
-
+    const cover = item.cover_image || item.image_url || item.image || item.thumbnail || null;
     const source = resolveSource(item);
-
-    const date =
-      item.published_at || item.pub_date || item.created_at || item.date || null;
-
+    const date = item.published_at || item.pub_date || item.created_at || item.date || null;
     const categoryName = item.category_name || item.category?.name || null;
 
-    return { id, title, detailTo, cover, source, date, categoryName };
+    return { id, titleParts, titleAttr, detailTo, cover, source, date, categoryName, categorySlug };
   }, [item]);
 }
 
-// -------------------- КОМПОНЕНТ --------------------
-
 export default function NewsCard({ item, badgeAlign = "right" }) {
-  const { title, detailTo, cover, source, date, categoryName } =
+  const { titleParts, titleAttr, detailTo, cover, source, date, categoryName, categorySlug } =
     useNormalized(item);
 
   const dateStr = useMemo(() => {
@@ -145,47 +127,79 @@ export default function NewsCard({ item, badgeAlign = "right" }) {
     try {
       const d = new Date(date);
       if (Number.isNaN(d.getTime())) return null;
-      return d.toLocaleDateString("ru-RU", {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      });
+      return d.toLocaleDateString("ru-RU", { year: "numeric", month: "short", day: "2-digit" });
     } catch {
       return null;
     }
   }, [date]);
 
   const hasCover = Boolean(cover);
+  const isAudioCover = hasCover && isAudioUrl(cover);
 
-  // -------------------- ДОБАВЛЕНО --------------------
   const ref = useRef(null);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        el.classList.add(s.visible);
-        observer.disconnect();
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add(s.visible);
+          io.disconnect();
+        }
+      },
+      { root: null, rootMargin: "300px 0px 300px 0px", threshold: 0 }
+    );
+    io.observe(el);
+
+    try {
+      const rect = el.getBoundingClientRect();
+      const inInitial = rect.top < window.innerHeight * 1.5;
+
+      // Префетч + preconnect — ТОЛЬКО для изображений (не для аудио!)
+      if (inInitial && hasCover && !isAudioCover) {
+        const w = 480;
+        const h = Math.round((w * 9) / 16);
+        const url = buildThumbnailUrl(cover, { w, h, q: 82, fmt: "webp", fit: "cover" });
+        if (url) {
+          const u = new URL(url, window.location.origin);
+          const linkId = `preconnect-${u.host}`;
+          if (!document.getElementById(linkId)) {
+            const link = document.createElement("link");
+            link.id = linkId;
+            link.rel = "preconnect";
+            link.href = `${u.protocol}//${u.host}`;
+            link.crossOrigin = "";
+            document.head.appendChild(link);
+          }
+          const img = new Image();
+          img.decoding = "async";
+          img.loading = "eager";
+          img.src = url;
+        }
       }
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  // ---------------------------------------------------
+    } catch {}
+
+    return () => {
+      io.disconnect();
+    };
+  }, [hasCover, cover, isAudioCover]);
 
   return (
     <article ref={ref} className={`${s.card} news-card`}>
-      <Link to={detailTo} className={s.mediaWrap} aria-label={title}>
-        <img
+      <Link to={detailTo} className={s.mediaWrap} aria-label={titleAttr}>
+        {/* SmartMedia сам не шлёт mp3 в ресайзер — для аудио отрисует <audio/> */}
+        <SmartMedia
           className={s.media}
-          src={hasCover ? cover : placeholder}
-          alt={title}
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.src = placeholder;
-          }}
+          src={hasCover ? cover : null}
+          alt={titleAttr}
+          w={480}
+          h={270}
+          style={{ aspectRatio: "16/9" }}
         />
-        {hasCover ? (
+        {/* Бейдж источника поверх медиы — только если это КАРТИНКА, а не аудио */}
+        {hasCover && !isAudioCover ? (
           <SourceBadge
             source={source}
             href={source.site_url || undefined}
@@ -197,7 +211,15 @@ export default function NewsCard({ item, badgeAlign = "right" }) {
 
       <div className={s.body}>
         <h3 className={s.title}>
-          <Link to={detailTo}>{title}</Link>
+          <Link to={detailTo}>
+            {/* Каждую часть — с новой строки, без `//` */}
+            {titleParts.map((part, idx) => (
+              <React.Fragment key={idx}>
+                {part}
+                {idx < titleParts.length - 1 && <br />}
+              </React.Fragment>
+            ))}
+          </Link>
         </h3>
 
         {!hasCover ? (
@@ -208,7 +230,15 @@ export default function NewsCard({ item, badgeAlign = "right" }) {
         ) : null}
 
         <div className={s.meta}>
-          {categoryName ? <span className={s.cat}>{categoryName}</span> : null}
+          {categoryName ? (
+            categorySlug ? (
+              <Link className={s.cat} to={normalizeAppPath(`/${decodeURIComponent(categorySlug)}`)}>
+                {categoryName}
+              </Link>
+            ) : (
+              <span className={s.cat}>{categoryName}</span>
+            )
+          ) : null}
           {dateStr ? <time className={s.date}>{dateStr}</time> : null}
         </div>
       </div>

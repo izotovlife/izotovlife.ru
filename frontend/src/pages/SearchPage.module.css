@@ -213,3 +213,27 @@
     padding: 3px 8px;
   }
 }
+/* Хлебные крошки */
+.breadcrumbs {
+  font-size: 14px;
+  color: var(--muted, rgba(255,255,255,0.7));
+  margin-bottom: 16px; /* расстояние до заголовка */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px; /* увеличенный отступ между элементами */
+  align-items: center;
+}
+
+.breadcrumbs span {
+  margin: 0 4px; /* дополнительный маленький отступ вокруг стрелок */
+}
+
+.breadcrumbs a {
+  color: var(--accent, #3ea6ff);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.breadcrumbs a:hover {
+  text-decoration: underline;
+}

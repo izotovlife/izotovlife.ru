@@ -1,0 +1,18 @@
+/* Путь: frontend/src/components/SmartTitle.module.css
+   Назначение: Стили аккуратного заголовка со строкой подзаголовка. */
+
+.wrap {
+  margin: 8px 0 16px;
+}
+
+.main {
+  margin: 0;
+  line-height: 1.15;
+}
+
+.sub {
+  margin-top: 8px;
+  color: #9aa6bf;
+  font-size: 0.95em;
+  line-height: 1.35;
+}

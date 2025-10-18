@@ -1,9 +1,20 @@
 # Путь: backend/settings.py
 # Назначение: Основные настройки Django-проекта IzotovLife (News Aggregator, Django + React)
 # Поддерживает: PostgreSQL через .env, DRF, JWT, CORS, соц.авторизацию, почту и защиту админки.
+# ОБНОВЛЕНИЯ (ничего не удалено):
+#   ✅ Добавлены константы проекта/фронтенда для регистрации и восстановления пароля:
+#        PROJECT_NAME, FRONTEND_BASE_URL, FRONTEND_LOGIN_URL, FRONTEND_RESET_URL
+#   ✅ Добавлен безопасный DEV-фоллбек почты: при DEBUG и пустом EMAIL_HOST_PASSWORD письма идут в консоль
+#   ✅ Добавлен ACCOUNT_DEFAULT_HTTP_PROTOCOL для allauth
+#   ✅ Добавлен EMAIL_SUBJECT_PREFIX (бренд в теме)
+#   ✅ Опциональная поддержка прокси (SECURE_PROXY_SSL_HEADER) через USE_X_FORWARDED_PROTO
+#   ✅ Ничего существующее не удалено — только дополнено
+#   ✅ ДОБАВЛЕНО: корректный CORS при withCredentials (whitelist вместо allow_all)
+#   ✅ ДОБАВЛЕНО: DEV_LAN_IP из .env для работы по локальной сети (например 192.168.0.58)
 
 from pathlib import Path
 from datetime import timedelta
+from urllib.parse import urlparse  # ✅ для разборки FRONTEND_BASE_URL
 import os
 from dotenv import load_dotenv
 
@@ -20,6 +31,23 @@ if dotenv_path.exists():
 else:
     print(f".env не найден по пути: {dotenv_path}")
 
+# =======================
+# КОНСТАНТЫ ПРОЕКТА / ФРОНТЕНДА (ДОБАВЛЕНО ДЛЯ РЕГИСТРАЦИИ/СБРОСА)
+# =======================
+PROJECT_NAME = os.getenv("PROJECT_NAME", "IzotovLife")
+
+# База фронтенда: используется для построения ссылок в письмах и whitelists CORS/CSRF
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3001")
+
+# Куда редиректить/ссылаться после успешной активации (используется в ActivateAccountView)
+FRONTEND_LOGIN_URL = os.getenv("FRONTEND_LOGIN_URL", f"{FRONTEND_BASE_URL}/login")
+
+# Базовый путь формы сброса пароля на фронте (используется в PasswordResetRequestView)
+# Итоговая ссылка собирается как: {FRONTEND_RESET_URL}/{uid}/{token}/
+FRONTEND_RESET_URL = os.getenv("FRONTEND_RESET_URL", f"{FRONTEND_BASE_URL}/reset-password")
+
+# ✅ Новый удобный параметр: ваш LAN-IP фронта в dev (например "192.168.0.58")
+DEV_LAN_IP = os.getenv("DEV_LAN_IP", "").strip()
 
 # =======================
 # БАЗОВЫЕ НАСТРОЙКИ
@@ -31,9 +59,16 @@ if DEBUG:
     ALLOWED_HOSTS = [
         "127.0.0.1",
         "localhost",
-        "192.168.0.33",  # локальный IP React-сервера
+        "0.0.0.0",
         "testserver",
+        # остался ваш старый IP, оставляем его, он не мешает
+        "192.168.0.33",
     ]
+    # ✅ добавим DEV_LAN_IP если задан
+    if DEV_LAN_IP:
+        ALLOWED_HOSTS.append(DEV_LAN_IP)
+    # dedup
+    ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS))
 else:
     ALLOWED_HOSTS = ["izotovlife.ru", "www.izotovlife.ru"]
 
@@ -76,17 +111,18 @@ INSTALLED_APPS = [
     "rssfeed",
     "pages",
     "ckeditor",
+    "image_guard",  # <-- ваше приложение-сторож
 ]
 
 # =======================
 # MIDDLEWARE
 # =======================
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # обязательно первым
+    "corsheaders.middleware.CorsMiddleware",  # должно быть одним из первых
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    #"django.middleware.csrf.CsrfViewMiddleware",
+    # "django.middleware.csrf.CsrfViewMiddleware",  # при чистом JWT можно оставить выключенным
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "security.middleware.AdminInternalGateMiddleware",
@@ -178,8 +214,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # CORS + CSRF (обновлено)
 # =======================
 
-# Разрешаем запросы с любых локальных портов React при разработке.
-# В продакшене желательно ограничить доменом izotovlife.ru.
+# Оригинальные ваши строки — оставляю (ниже перезададим whitelist-ами)
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
@@ -207,13 +242,57 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3003",
 ]
 
+# ✅ ПРАВИЛЬНЫЙ DEV-CORS/CSRF с credential'ами:
+# django-cors-headers не любит пару (CORS_ALLOW_ALL_ORIGINS=True) + (CORS_ALLOW_CREDENTIALS=True).
+# Поэтому в DEBUG сводим к whitelist.
+if DEBUG:
+    # разбор URL фронта
+    parsed = urlparse(FRONTEND_BASE_URL)
+    origin_from_front = f"{parsed.scheme}://{parsed.hostname}:{parsed.port or (80 if parsed.scheme=='http' else 443)}"
+
+    # явный whitelist CORS
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [
+        origin_from_front,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3002",
+        "http://localhost:3003",
+        "http://127.0.0.1:3003",
+    ]
+    # LAN-IP фронта (если задан)
+    if DEV_LAN_IP:
+        CORS_ALLOWED_ORIGINS += [
+            f"http://{DEV_LAN_IP}:3000",
+            f"http://{DEV_LAN_IP}:3001",
+            f"http://{DEV_LAN_IP}:3002",
+            f"http://{DEV_LAN_IP}:3003",
+        ]
+    # regex на любые локальные 3xxx
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^http://localhost:\d+$",
+        r"^http://127\.0\.0\.1:\d+$",
+    ] + ([rf"^http://{DEV_LAN_IP}:\d+$"] if DEV_LAN_IP else [])
+
+    # объединённый CSRF-whitelist (переопределяет ваши два блока выше)
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(
+        CORS_ALLOWED_ORIGINS + [
+            origin_from_front,
+            "http://localhost",
+            "http://127.0.0.1",
+        ]
+    ))
+
 # =======================
 # DRF
 # =======================
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        #"rest_framework.authentication.SessionAuthentication",
+        # "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.AllowAny",
@@ -267,6 +346,10 @@ else:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
 
+# Опционально учитываем обратный прокси, если выставляет заголовок X-Forwarded-Proto
+if os.getenv("USE_X_FORWARDED_PROTO", "False").lower() in ("true", "1", "yes"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 # =======================
 # EMAIL (исправлено и активировано)
 # =======================
@@ -281,6 +364,13 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "izotovlife@yandex.ru")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
+# ✅ DEV-фоллбек: если DEBUG и нет пароля SMTP, шлём письма в консоль (для регистрации/сброса)
+if DEBUG and not EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# Бренд в теме писем
+EMAIL_SUBJECT_PREFIX = os.getenv("EMAIL_SUBJECT_PREFIX", "[IzotovLife] ")
+
 # =======================
 # ALLAUTH
 # =======================
@@ -288,6 +378,8 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_EMAIL_REQUIRED = True
+# Протокол для ссылок allauth
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if not DEBUG else "http"
 
 REST_USE_JWT = True
 TOKEN_MODEL = None
@@ -319,3 +411,19 @@ LOGGING = {
         },
     },
 }
+
+# === НАСТРОЙКИ ПРОКСИ КАРТИНОК (ДОБАВЛЕНО) ===
+THUMB_CACHE_DIR = os.path.join(BASE_DIR, "media", "thumb_cache")
+os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
+
+# Форматы, которые будем пытаться отдавать по умолчанию (по приоритету)
+THUMB_DEFAULT_FORMATS = ("webp", "jpg")  # можно расширить ('avif','webp','jpg') если pillow+libavif собраны
+
+# Качество (1–100) для потерьных форматов
+THUMB_DEFAULT_QUALITY = 82
+
+# Максимальный размер исходного файла для скачивания (в байтах), чтобы не убить сервер огромными файлами
+THUMB_MAX_ORIGINAL_BYTES = 8 * 1024 * 1024  # 8 MB
+
+# Таймауты для скачивания внешних картинок
+THUMB_REQUEST_TIMEOUT = (6.0, 12.0)  # (connect, read), seconds
