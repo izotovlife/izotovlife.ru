@@ -1,20 +1,25 @@
-/* Путь: frontend/src/Api.js
-   Назначение: Axios-инстанс и функции API (новости, категории, поиск, SEO-маршруты, аутентификация).
-   Что внутри (добавлено, ничего важного не удалено):
-   - ✅ Жёсткая нормализация путей категорий: по умолчанию бьём ТОЛЬКО на /news/category/<slug>/ (устаревший /news/<slug>/ отключён флагом).
-   - ✅ buildThumbnailUrl(): НЕ отправляем в ресайзер data:/blob:/about: и всё не-http(s) → 400 исчезают.
-   - ✅ Совместимость: оставлены tryGet(), attachSeoUrl(), resolveNewsApi и прочие старые экспорты.
-   - ✅ fetchCategoryNews(slug, opts): принимает и число (page), и объект { page, limit }, и флаг allowLegacySlugRoute.
-   - ✅ fetchFirstImageForCategory(slug): быстрый фолбэк для обложек категорий из /news/feed/images/?category=<slug>&limit=1.
-*/
+// Путь: frontend/src/Api.js
+// Назначение: Axios-инстанс и функции API (новости, категории, поиск, SEO-маршруты, аутентификация).
+// Что внутри (добавлено, ничего важного не удалено):
+// - ✅ Жёсткая нормализация путей категорий: по умолчанию бьём ТОЛЬКО на /news/category/<slug>/ (устаревший /news/<slug>/ отключён флагом).
+// - ✅ buildThumbnailUrl(): НЕ отправляем в ресайзер data:/blob:/about: и всё не-http(s) → 400 исчезают.
+// - ✅ Совместимость: оставлены tryGet(), attachSeoUrl(), resolveNewsApi и прочие старые экспорты.
+// - ✅ fetchCategoryNews(slug, opts): принимает и число (page), и объект { page, limit }, и флаг allowLegacySlugRoute.
+// - ✅ fetchFirstImageForCategory(slug): быстрый фолбэк для обложек категорий из /news/feed/images/?category=<slug>&limit=1.
+// - ✅ ДОБАВЛЕНО: BACKEND_BASE (база без /api), withCredentials для allauth-попапа,
+//                setToken(token, refresh?) — сохраняем refresh при наличии,
+//                socialLoginPopup(provider) — открывает /accounts/<prov>/login/?next=/api/auth/social/complete/ и принимает postMessage с JWT.
 
 import axios from "axios";
 
 // ---------------- БАЗОВАЯ НАСТРОЙКА ----------------
 export const API_BASE = "http://localhost:8000/api";
+// база без /api — нужна для ссылок /accounts/<prov>/login/
+export const BACKEND_BASE = API_BASE.replace(/\/api\/?$/, "");
 
 const api = axios.create({
   baseURL: API_BASE,
+  withCredentials: true, // важно для allauth-потока (сессионные cookie в попапе)
 });
 
 // ---------------- JWT УТИЛИТЫ ----------------
@@ -41,14 +46,16 @@ function applyAuthHeader(token) {
 function dropToken() {
   try {
     localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
   } catch {}
   delete api.defaults.headers.common["Authorization"];
 }
 
-export function setToken(token) {
+export function setToken(token, refresh = null) {
   if (token && isJwtValid(token)) {
     try {
       localStorage.setItem("access", token);
+      if (refresh) localStorage.setItem("refresh", String(refresh));
     } catch {}
     applyAuthHeader(token);
   } else {
@@ -531,7 +538,7 @@ export async function suggestNews(payload) {
 export async function login(username, password) {
   const r = await api.post("/auth/login/", { username, password });
   const token = r.data?.access;
-  if (token) setToken(token);
+  if (token) setToken(token, r.data?.refresh || null);
   return r.data;
 }
 export async function register(data) {
@@ -566,6 +573,38 @@ export async function goToAdmin() {
   } catch (err) {
     console.error("Не удалось открыть админку:", err);
   }
+}
+
+// ---------------- СОЦ. ВХОД ЧЕРЕЗ POPUP (НОВОЕ) ----------------
+export function socialLoginPopup(provider = "google") {
+  const w = 520, h = 680;
+  const left = Math.max(0, window.screenX + (window.outerWidth - w) / 2);
+  const top  = Math.max(0, window.screenY + (window.outerHeight - h) / 2);
+
+  // next → наш callback /api/auth/social/complete/, который выдаёт JWT и закрывает окно
+  const url  = `${BACKEND_BASE}/accounts/${provider}/login/?process=login&next=/api/auth/social/complete/`;
+  const win  = window.open(url, "social_login", `width=${w},height=${h},left=${left},top=${top}`);
+
+  return new Promise((resolve, reject) => {
+    const timer = setInterval(() => {
+      if (win && win.closed) {
+        clearInterval(timer);
+        window.removeEventListener("message", onMsg);
+        reject(new Error("Окно авторизации закрыто"));
+      }
+    }, 300);
+
+    function onMsg(ev) {
+      const data = ev.data || {};
+      if (data.type === "social-auth" && data.access) {
+        clearInterval(timer);
+        window.removeEventListener("message", onMsg);
+        try { setToken(data.access, data.refresh || null); } catch {}
+        resolve(data);
+      }
+    }
+    window.addEventListener("message", onMsg);
+  });
 }
 
 export default api;

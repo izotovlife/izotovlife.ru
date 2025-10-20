@@ -2,12 +2,11 @@
    Назначение: Детальная страница новости (Article или ImportedNews).
 
    В этой версии:
-   ✅ «Похожие» никогда не содержат текущую открытую новость:
-      - новая функция filterOutCurrent(list, curSlug, curId)
-      - фильтрация применяется при setRelated/setCachedRelated и дополнительно при подготовке к рендеру
-   ✅ Сохранены: мгновенный сброс правой колонки при смене slug, гарды от устаревших ответов,
-      быстрый parallel race + кеш (in-memory + sessionStorage), скелетоны и fade-in анимации,
-      pretty <title>, SmartTitle/ArticleBody/SmartMedia, синхронизация высот.
+   ✅ «Похожие» не содержат текущую новость (filterOutCurrent + применения везде).
+   ✅ Быстрый race, кеш, скелетоны, pretty <title>, Smart* компоненты, синхронизация высот — всё сохранено.
+   ✅ Панель «Поделиться» — под записью (как ранее перенесли).
+   ✅ Украшена дата/время: добавлен "бейдж" с иконкой часов (inline SVG), мягкая подложка.
+   ✅ В атрибуции осталась только строка "Источник: …" (сам текст-пояснение удалён в компоненте ShareButtons).
 */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +21,8 @@ import SmartMedia from "../components/SmartMedia";
 import ArticleBody from "../components/ArticleBody";
 import SmartTitle from "../components/SmartTitle";
 import { buildPrettyTitle } from "../utils/title";
+
+import ShareButtons from "../components/ShareButtons";
 
 // ================= УТИЛИТЫ API и КАРТИНКИ =================
 const API_BASE = "http://localhost:8000/api";
@@ -53,7 +54,7 @@ function buildThumb(src, { w = 640, h = 360, fit = "cover", fmt = "webp", q = 82
   return `${API_BASE}/media/thumbnail/?${params.toString()}`;
 }
 
-/** Нормализуем карточку похожих (картинки -> абсолютные, создаём превью) */
+/** Нормализация похожих */
 function normalizeRelated(items) {
   if (!Array.isArray(items)) return [];
   return items.map((it) => {
@@ -63,7 +64,7 @@ function normalizeRelated(items) {
   });
 }
 
-/** Fallback: список новостей категории — сначала новый /api/news/<slug>/, затем старый /api/category/<slug>/ */
+/** Fallback: последние по категории */
 async function fetchCategoryLatest(catSlug, limit = 8) {
   try {
     const d1 = await getJson(`${API_BASE}/news/${encodeURIComponent(catSlug)}/?limit=${limit}`);
@@ -80,7 +81,7 @@ async function fetchCategoryLatest(catSlug, limit = 8) {
   }
 }
 
-/** Fallback: детальная новость по универсальному роуту /api/news/<slug>/ */
+/** Универсальная детальная */
 async function fetchArticleUniversal(slug) {
   if (!slug) return null;
   try {
@@ -90,7 +91,7 @@ async function fetchArticleUniversal(slug) {
   }
 }
 
-/** СТАРАЯ ПОСЛЕДОВАТЕЛЬНАЯ ВЕРСИЯ — оставлена для совместимости (подавлен eslint) */
+/** Старая последовательная — оставлена */
 // eslint-disable-next-line no-unused-vars
 async function fetchRelatedVariants(slug, categorySlug, limit = 8) {
   if (!slug) return [];
@@ -122,7 +123,7 @@ async function fetchRelatedVariants(slug, categorySlug, limit = 8) {
   return [];
 }
 
-/* ==================== БЫСТРАЯ ПАРАЛЛЕЛЬНАЯ ВЫДАЧА (RACE + TIMEOUTS) ==================== */
+/* ==================== Параллельная выдача (RACE + TIMEOUTS) ==================== */
 function withTimeout(promise, ms = 1200) {
   return Promise.race([
     promise,
@@ -143,7 +144,6 @@ async function fetchJsonArray(url, timeoutMs = 1200) {
   }
 }
 
-/** Параллельный сбор с «первым непустым» + запасной по категории */
 async function fetchRelatedVariantsFast(slug, categorySlug, limit = 8) {
   if (!slug) return [];
 
@@ -177,7 +177,7 @@ async function fetchRelatedVariantsFast(slug, categorySlug, limit = 8) {
   }
 }
 
-/* ================= КЕШ «ПОХОЖИХ» (память вкладки + sessionStorage) ================= */
+/* ================= КЕШ «ПОХОЖИХ» ================= */
 const RELATED_CACHE_TTL = 5 * 60 * 1000; // 5 минут
 const relatedCache = new Map(); // key: slug → { ts, items }
 
@@ -228,7 +228,7 @@ function formatRuPortalDate(isoString, tz = "Europe/Moscow") {
     for (const p of fmt.formatToParts(d)) {
       if (p.type !== "literal") parts[p.type] = p.value;
     }
-    return `${parts.day} ${parts.month} ${parts.year}, ${parts.hour}:${parts.minute}`;
+    return `${parts.day} ${parts.month} ${parts.year} • ${parts.hour}:${parts.minute}`;
   } catch {
     return String(isoString);
   }
@@ -260,22 +260,20 @@ function humanizeSlug(slug) {
     .join(" ");
 }
 
-/* ================= ВСПОМОГАТЕЛЬНОЕ: определение slug и фильтрация текущей новости ================= */
+/* вспомогательное */
 function extractSlug(maybeUrl) {
   if (!maybeUrl) return "";
   try {
-    // поддержка относительных путей и абсолютных URL
     const u = new URL(maybeUrl, BACKEND_ORIGIN);
     const parts = u.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
     return parts[parts.length - 1] || "";
   } catch {
-    // на случай, если пришло не-URL, попробуем как строку пути
     const parts = String(maybeUrl).replace(/\/+$/, "").split("/").filter(Boolean);
     return parts[parts.length - 1] || "";
   }
 }
 
-/** Удаляем из списка элемент, соответствующий текущей открытой новости */
+/** фильтрация текущей */
 function filterOutCurrent(list, curSlug, curId) {
   const curSlugLC = (curSlug || "").toLowerCase();
   const curIdStr = curId != null ? String(curId) : null;
@@ -297,10 +295,9 @@ export default function NewsDetailPage() {
   const [item, setItem] = useState(null);
 
   const [latest, setLatest] = useState([]);
-  const [latestLoading, setLatestLoading] = useState(true); // скелетоны слева
-
+  const [latestLoading, setLatestLoading] = useState(true);
   const [related, setRelated] = useState([]);
-  const [relatedLoading, setRelatedLoading] = useState(true); // скелетоны справа
+  const [relatedLoading, setRelatedLoading] = useState(true);
 
   const [error, setError] = useState(null);
   const [catDict, setCatDict] = useState({});
@@ -309,10 +306,9 @@ export default function NewsDetailPage() {
   const mainRef = useRef(null);
   const rightRef = useRef(null);
 
-  /** Актуальный slug, чтобы игнорировать устаревшие ответы */
   const latestSlugRef = useRef(null);
 
-  // ====== ПОДГОТОВКА: сначала убираем текущую новость из «related», потом сортируем ======
+  // ====== подготовка похожих ======
   const relatedFiltered = useMemo(() => {
     const curSlug = item?.slug || params?.slug || "";
     const curId = item?.id ?? item?.pk ?? null;
@@ -351,7 +347,7 @@ export default function NewsDetailPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Preconnect/dns-prefetch к бэку
+  // Preconnect/dns-prefetch
   useEffect(() => {
     const preconnect = document.createElement("link");
     preconnect.rel = "preconnect";
@@ -367,7 +363,7 @@ export default function NewsDetailPage() {
     };
   }, []);
 
-  /* ========== РЕСЕТ И РАННИЙ СТАРТ «ПОХОЖИХ» ДЛЯ ТЕКУЩЕГО SLUG (с фильтрацией текущей новости) ========== */
+  /* ========== РЕСЕТ И РАННИЙ СТАРТ ПОХОЖИХ ========== */
   useEffect(() => {
     let cancelled = false;
     const slug = params?.slug;
@@ -375,10 +371,9 @@ export default function NewsDetailPage() {
     if (!slug) return;
 
     latestSlugRef.current = slug;
-    setRelated([]);           // мгновенный сброс
-    setRelatedLoading(true);  // включаем скелетоны
+    setRelated([]);
+    setRelatedLoading(true);
 
-    // Prefetch related-эндпоинта
     try {
       const pre = document.createElement("link");
       pre.rel = "prefetch";
@@ -411,7 +406,7 @@ export default function NewsDetailPage() {
       } catch {}
     })();
 
-    // 3) основной быстрый сбор (race + timeouts)
+    // 3) основной быстрый сбор
     (async () => {
       try {
         const listRaw = await fetchRelatedVariantsFast(slug, categoryParam, 8);
@@ -427,7 +422,7 @@ export default function NewsDetailPage() {
     return () => { cancelled = true; };
   }, [params?.slug, params?.category]);
 
-  // Основная загрузка: статья + последние (слева)
+  // Основная загрузка
   useEffect(() => {
     let cancelled = false;
 
@@ -474,7 +469,7 @@ export default function NewsDetailPage() {
     return () => { document.title = prev; };
   }, [item?.title]);
 
-  // Синхронизация высот колонок
+  // Синхронизация высот
   useEffect(() => {
     if (!mainRef.current || !leftRef.current || !rightRef.current) return;
     const syncHeights = () => {
@@ -529,6 +524,25 @@ export default function NewsDetailPage() {
   const categoryTitle =
     item.category?.name || item.category?.title || catDict[categorySlug] || humanizeSlug(categorySlug);
 
+  /* ======= Лёгкое оформление даты/времени (бейдж) без изменения ваших CSS-файлов ======= */
+  const dateBadgeStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    fontSize: "13px",
+    lineHeight: "18px",
+    background: "var(--btn-bg, rgba(15,23,42,.06))",
+    border: "1px solid var(--border, rgba(15,23,42,.18))",
+    color: "inherit",
+  };
+  const clockIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" style={{ opacity: .8 }}>
+      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 5h-2v6l5 3 1-1.73-4-2.27V7Z" />
+    </svg>
+  );
+
   return (
     <div className={`news-detail ${s.pageWrap}`}>
       <aside className={s.leftAside} ref={leftRef}>
@@ -564,9 +578,10 @@ export default function NewsDetailPage() {
           <Link to={`/${categorySlug}/`}>{categoryTitle}</Link>
         </div>
 
+        {/* красивая дата/время + источник текстом */}
         <div className={s.meta}>
-          {datePretty}
-          {sourceTitle ? " • " + sourceTitle : ""}
+          <span style={dateBadgeStyle}>{clockIcon}{datePretty}</span>
+          {sourceTitle ? <span style={{ marginLeft: 10, opacity: .85 }}>• {sourceTitle}</span> : null}
         </div>
 
         {imageRaw ? (
@@ -590,6 +605,15 @@ export default function NewsDetailPage() {
             </a>
           </div>
         )}
+
+        {/* Панель «Поделиться» — под записью */}
+        <ShareButtons
+          title={item?.title}
+          summary={item?.summary || ""}
+          url={item?.seo_url || `/${categorySlug}/${item?.slug || ""}/`}
+          sourceName={item?.source?.name || sourceTitle}
+          sourceUrl={externalUrl}
+        />
       </main>
 
       <aside className={s.rightAside} ref={rightRef}>

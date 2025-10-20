@@ -1,0 +1,126 @@
+/* Путь: frontend/src/components/ShareButtons.module.css
+   Назначение: Стили панели «Поделиться» с адаптацией под светлую/тёмную тему и анимациями.
+   В этой версии:
+   • Иконки-логотипы без текста, с подсветкой и фокус-обводкой.
+   • Цвет иконок зависит от темы: в светлой — тёмные; в тёмной — белые.
+   • Минимальный блок атрибуции: только "Источник: …".
+*/
+
+/* Базовые переменные (светлая тема по умолчанию) */
+:root {
+  --icon-color: #0f172a;        /* slate-900 */
+  --icon-color-hover: #000000;  /* чуть темнее */
+  --icon-glow: rgba(0,0,0,.08);
+  --btn-bg: rgba(15, 23, 42, 0.06);
+  --btn-bg-hover: rgba(15, 23, 42, 0.10);
+  --border: rgba(15,23,42,.18);
+  --border-hover: rgba(15,23,42,.28);
+}
+
+/* Тёмная тема через data-атрибут (если у вас так переключается тема) */
+:root[data-theme="dark"],
+[data-theme="dark"] :root {
+  --icon-color: #ffffff;
+  --icon-color-hover: #ffffff;
+  --icon-glow: rgba(255,255,255,.18);
+  --btn-bg: rgba(255,255,255,.06);
+  --btn-bg-hover: rgba(255,255,255,.12);
+  --border: rgba(255,255,255,.18);
+  --border-hover: rgba(255,255,255,.32);
+}
+
+/* Фолбэк: если нет data-theme, опираемся на системную тему */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --icon-color: #ffffff;
+    --icon-color-hover: #ffffff;
+    --icon-glow: rgba(255,255,255,.18);
+    --btn-bg: rgba(255,255,255,.06);
+    --btn-bg-hover: rgba(255,255,255,.12);
+    --border: rgba(255,255,255,.18);
+    --border-hover: rgba(255,255,255,.32);
+  }
+}
+
+.shareWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 18px 0 26px;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Круглая кнопка-иконка */
+.btnIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--btn-bg);
+  color: var(--icon-color);
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  transition: transform .12s ease, background .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, opacity .2s ease;
+  opacity: .9;
+}
+
+.btnIcon:hover,
+.btnIcon:focus-visible {
+  transform: translateY(-1px) scale(1.04);
+  background: var(--btn-bg-hover);
+  border-color: var(--border-hover);
+  color: var(--icon-color-hover);
+  opacity: 1;
+  box-shadow: 0 0 0 6px var(--icon-glow);
+  outline: none;
+  animation: share-wiggle .35s ease-out 1;
+}
+
+.btnIcon:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 0 0 4px var(--icon-glow);
+}
+
+/* лёгкая анимация */
+@keyframes share-wiggle {
+  0%   { transform: translateY(-1px) scale(1.00) rotate(0deg); }
+  50%  { transform: translateY(-1px) scale(1.06) rotate(-2deg); }
+  100% { transform: translateY(-1px) scale(1.04) rotate(0deg); }
+}
+
+.attribution {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--btn-bg);
+}
+
+.attrSource {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Ссылки источника — подчёркивание и плавный ховер */
+.attrSource a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color .2s ease, background .2s ease, box-shadow .2s ease;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+.attrSource a:hover {
+  color: var(--icon-color-hover);
+  box-shadow: 0 2px 0 0 var(--border-hover);
+}
