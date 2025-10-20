@@ -5,6 +5,12 @@
 #   • В обычном режиме пустышки отбрасываются.
 #   • Всё остальное (фолбэки, парсинг страницы, абзацы, картинки) сохранено.
 #   • ✅ Добавлен автоматический вызов cleanup_broken_news() после завершения импорта.
+#   • ✅ ДОБАВЛЕНО (ничего не удалено):
+#       - from rssfeed.net import fetch, NetworkError — устойчивые HTTP-запросы с ретраями и понятной диагностикой (10013/10053/10054).
+#       - FEED_TIMEOUT = (3.05, 20.0) — таймауты для загрузки RSS/HTML через fetch.
+#       - parse_feed_with_fallback(feed_url) — сначала fetch bytes → feedparser.parse(content), иначе fallback → feedparser.parse(url).
+#       - fetch_page_safe(url) — сначала fetch(...), иначе fallback на старую fetch_page(...).
+#       - Внутри handle(): вызовы заменены на безопасные parse_feed_with_fallback(...) и fetch_page_safe(...). Старые функции оставлены нетронутыми.
 
 import feedparser
 import re
@@ -24,9 +30,13 @@ from django.db import transaction
 from news.models import ImportedNews, Category, NewsSource
 from news.utils.cleanup import cleanup_broken_news   # ✅ правильный импорт
 
+# ✅ НОВОЕ: устойчивый сетевой слой (см. backend/rssfeed/net.py)
+from rssfeed.net import fetch, NetworkError
+
 # --- ПАРАМЕТРЫ КАЧЕСТВА -------------------------------------------------------
 
 REQUEST_TIMEOUT = 8
+FEED_TIMEOUT = (3.05, 20.0)  # ✅ НОВОЕ: (connect, read) таймауты для fetch(...)
 MIN_SUMMARY_CHARS = 120
 MIN_PARAGRAPHS = 1
 MAX_SUMMARY_CHARS = 1200
@@ -172,6 +182,25 @@ def extract_category(entry) -> str:
     return "Лента новостей"
 
 
+# ✅ НОВОЕ: безопасная загрузка HTML-страницы (сначала fetch, затем старый fallback)
+def fetch_page_safe(url: str) -> BeautifulSoup | None:
+    try:
+        r = fetch(url, method="GET", timeout=FEED_TIMEOUT, headers={"User-Agent": USER_AGENT})
+        if r.status_code == 200 and r.text:
+            return BeautifulSoup(r.text, "lxml")
+    except NetworkError:
+        pass  # мягкий откат на старую реализацию ниже
+    # ↓↓↓ СТАРАЯ ФУНКЦИЯ НИЖЕ ОСТАВЛЕНА БЕЗ ИЗМЕНЕНИЙ, используем её как fallback
+    try:
+        resp = requests.get(url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
+        if resp.status_code != 200 or not resp.text:
+            return None
+        return BeautifulSoup(resp.text, "lxml")
+    except Exception:
+        return None
+
+
+# ⚠️ СТАРАЯ ФУНКЦИЯ СОХРАНЕНА (не удаляю), используется как прямой вызов в старых местах и как fallback
 def fetch_page(url: str) -> BeautifulSoup | None:
     try:
         resp = requests.get(url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
@@ -240,6 +269,19 @@ def assign_if_exists(instance, **kwargs):
             setattr(instance, k, v)
 
 
+# ✅ НОВОЕ: безопасная загрузка RSS с мягким откатом
+def parse_feed_with_fallback(feed_url: str):
+    # 1) Пытаемся скачать байты через устойчивый fetch
+    try:
+        r = fetch(feed_url, method="GET", timeout=FEED_TIMEOUT, headers={"User-Agent": USER_AGENT})
+        if r.status_code == 200 and r.content:
+            return feedparser.parse(r.content)
+    except NetworkError:
+        pass
+    # 2) Старый способ: feedparser сам ходит по URL
+    return feedparser.parse(feed_url)
+
+
 # --- ОСНОВНАЯ ЛОГИКА ----------------------------------------------------------
 
 class Command(BaseCommand):
@@ -279,10 +321,11 @@ class Command(BaseCommand):
 
             self.stdout.write(self.style.NOTICE(f"→ Импорт из {src.name} ({src.feed_url})"))
 
+            # ✅ Новая безопасная загрузка RSS с fallback (ничего не удалено)
             try:
-                feed = feedparser.parse(src.feed_url)
+                feed = parse_feed_with_fallback(src.feed_url)
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"  Ошибка парсинга: {e}"))
+                self.stdout.write(self.style.ERROR(f"  Ошибка загрузки/парсинга: {e}"))
                 continue
 
             if not feed or not feed.get("entries"):
@@ -306,8 +349,9 @@ class Command(BaseCommand):
                     text = html_to_text_preserve_paragraphs(raw_html)
                     text = first_paragraphs(text, MAX_SUMMARY_CHARS)
 
+                    # Если текста мало — пытаемся добрать со страницы
                     if (len(text) < MIN_SUMMARY_CHARS) or (len([p for p in text.split("\n") if p.strip()]) < MIN_PARAGRAPHS):
-                        soup = fetch_page(link)
+                        soup = fetch_page_safe(link)  # ✅ безопасная загрузка с fallback
                         fb_txt = page_extract_text(soup)
                         fb_txt = html_to_text_preserve_paragraphs(fb_txt)
                         fb_txt = first_paragraphs(fb_txt, MAX_SUMMARY_CHARS)

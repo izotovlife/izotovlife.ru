@@ -11,6 +11,11 @@
 #   ✅ Ничего существующее не удалено — только дополнено
 #   ✅ ДОБАВЛЕНО: корректный CORS при withCredentials (whitelist вместо allow_all)
 #   ✅ ДОБАВЛЕНО: DEV_LAN_IP из .env для работы по локальной сети (например 192.168.0.58)
+#   ✅ ДОБАВЛЕНО ДЛЯ РЕГИСТРАЦИИ/ВХОДА: allauth вход по логину ИЛИ email, привязка кастомного RegisterSerializer,
+#      экспонирование заголовка Authorization для фронта, безопасные флаги SameSite для куки, добавлена SessionAuth в DRF.
+#   ✅ ИСПРАВЛЕНО: SOCIALACCOUNT_PROVIDERS — теперь 'APP' задаётся ТОЛЬКО при наличии client_id и secret в .env,
+#      иначе allauth берёт настройки из админки (SocialApp). Это устраняет ошибку client_id=None.
+#   ✅ ДОБАВЛЕНО (важно для VK через ngrok): принудительный HTTPS для allauth, доверие к прокси, и whitelists для ngrok-домена.
 
 from pathlib import Path
 from datetime import timedelta
@@ -49,6 +54,12 @@ FRONTEND_RESET_URL = os.getenv("FRONTEND_RESET_URL", f"{FRONTEND_BASE_URL}/reset
 # ✅ Новый удобный параметр: ваш LAN-IP фронта в dev (например "192.168.0.58")
 DEV_LAN_IP = os.getenv("DEV_LAN_IP", "").strip()
 
+# 🔒 NGROK/HTTPS (ДОБАВЛЕНО): публичный https-домен (для тестов через ngrok)
+NGROK_HTTPS_DOMAIN = os.getenv(
+    "NGROK_HTTPS_DOMAIN",
+    "interimperial-untensile-joanie.ngrok-free.dev"  # ← можно переопределить в .env при смене туннеля
+).strip()
+
 # =======================
 # БАЗОВЫЕ НАСТРОЙКИ
 # =======================
@@ -67,6 +78,9 @@ if DEBUG:
     # ✅ добавим DEV_LAN_IP если задан
     if DEV_LAN_IP:
         ALLOWED_HOSTS.append(DEV_LAN_IP)
+    # ✅ ДОБАВЛЕНО: разрешаем ngrok-домен
+    if NGROK_HTTPS_DOMAIN:
+        ALLOWED_HOSTS += [NGROK_HTTPS_DOMAIN, ".ngrok-free.dev"]
     # dedup
     ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS))
 else:
@@ -142,7 +156,7 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
-                "django.template.context_processors.request",
+                "django.template.context_processors.request",  # allauth требует это
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "backend.context_processors.site_domain",
@@ -218,6 +232,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
+# 🔎 Экспонируем заголовок Authorization для фронта (удобно при отладке/аналитике)
+CORS_EXPOSE_HEADERS = ["Content-Type", "Authorization"]  # ✅ ДОБАВЛЕНО
+
 # Список доверенных источников для CSRF-токена (используется только в DEBUG)
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost",
@@ -271,6 +288,10 @@ if DEBUG:
             f"http://{DEV_LAN_IP}:3002",
             f"http://{DEV_LAN_IP}:3003",
         ]
+    # ✅ ДОБАВЛЕНО: разрешаем фронт/бек по ngrok (https)
+    if NGROK_HTTPS_DOMAIN:
+        CORS_ALLOWED_ORIGINS += [f"https://{NGROK_HTTPS_DOMAIN}"]
+
     # regex на любые локальные 3xxx
     CORS_ALLOWED_ORIGIN_REGEXES = [
         r"^http://localhost:\d+$",
@@ -285,6 +306,9 @@ if DEBUG:
             "http://127.0.0.1",
         ]
     ))
+    # ✅ ДОБАВЛЕНО: ngrok-домен в CSRF (https)
+    if NGROK_HTTPS_DOMAIN and f"https://{NGROK_HTTPS_DOMAIN}" not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{NGROK_HTTPS_DOMAIN}")
 
 # =======================
 # DRF
@@ -300,6 +324,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 30,
 }
+
+# ⚙️ Для соц-логина через allauth удобно разрешить сессионную аутентификацию и для DRF-вью (не мешает JWT)
+# (оставляем раньше заданный блок и ДОБАВЛЯЕМ явное включение SessionAuthentication)
+REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"] = (
+    "rest_framework_simplejwt.authentication.JWTAuthentication",
+    "rest_framework.authentication.SessionAuthentication",  # ✅ ДОБАВЛЕНО
+)
 
 # троттлинг для API (исправлено)
 REST_FRAMEWORK.setdefault("DEFAULT_THROTTLE_CLASSES", [
@@ -337,6 +368,10 @@ TRUSTED_ADMIN_IPS = [
     if ip.strip()
 ]
 
+# 💡 безопасные SameSite для кук (в т.ч. для allauth-попапа — не повредит)
+SESSION_COOKIE_SAMESITE = "Lax"  # ✅ ДОБАВЛЕНО
+CSRF_COOKIE_SAMESITE = "Lax"     # ✅ ДОБАВЛЕНО
+
 if DEBUG:
     SECURE_SSL_REDIRECT = False
     CSRF_COOKIE_SECURE = False
@@ -345,6 +380,11 @@ else:
     SECURE_SSL_REDIRECT = True
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
+
+# 🔒 NGROK/HTTPS (ДОБАВЛЕНО): всегда строим https-ссылки и доверяем заголовкам прокси
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"  # ⟵ важно для allauth при DEBUG+ngrok
+USE_X_FORWARDED_HOST = True              # ⟵ чтобы Host брался из X-Forwarded-Host/ngrok
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Опционально учитываем обратный прокси, если выставляет заголовок X-Forwarded-Proto
 if os.getenv("USE_X_FORWARDED_PROTO", "False").lower() in ("true", "1", "yes"):
@@ -379,15 +419,57 @@ LOGOUT_REDIRECT_URL = "/"
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_EMAIL_REQUIRED = True
 # Протокол для ссылок allauth
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if not DEBUG else "http"
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if not DEBUG else "http"  # ← оставляем как было...
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"  # ...и принудительно переписываем на https для ngrok ✅
+
+# ✅ Вход по логину ИЛИ e-mail (чтобы формы были дружелюбнее)
+ACCOUNT_AUTHENTICATION_METHOD = "username_email"  # ✅ ДОБАВЛЕНО
+ACCOUNT_USERNAME_REQUIRED = True                  # ✅ ДОБАВЛЕНО
 
 REST_USE_JWT = True
 TOKEN_MODEL = None
 
+# --- ВАЖНО: провайдеры соц.логина. Не задаём 'APP', если env пуст — тогда allauth возьмёт SocialApp из админки.
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_SECRET = os.getenv("GOOGLE_SECRET", "").strip()
+YANDEX_CLIENT_ID = os.getenv("YANDEX_CLIENT_ID", "").strip()
+YANDEX_SECRET = os.getenv("YANDEX_SECRET", "").strip()
+VK_CLIENT_ID = os.getenv("VK_CLIENT_ID", "").strip()
+VK_SECRET = os.getenv("VK_SECRET", "").strip()
+
 SOCIALACCOUNT_PROVIDERS = {
-    "vk": {"APP": {"client_id": os.getenv("VK_CLIENT_ID"), "secret": os.getenv("VK_SECRET"), "key": ""}},
-    "yandex": {"APP": {"client_id": os.getenv("YANDEX_CLIENT_ID"), "secret": os.getenv("YANDEX_SECRET"), "key": ""}},
-    "google": {"APP": {"client_id": os.getenv("GOOGLE_CLIENT_ID"), "secret": os.getenv("GOOGLE_SECRET"), "key": ""}},
+    "google": {},
+    "yandex": {},
+    "vk": {
+        # Можно временно убрать scope, если в VK не одобрен email:
+   "SCOPE": [],
+    },
+}
+
+if GOOGLE_CLIENT_ID and GOOGLE_SECRET:
+    SOCIALACCOUNT_PROVIDERS["google"]["APP"] = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "secret": GOOGLE_SECRET,
+        "key": "",
+    }
+
+if YANDEX_CLIENT_ID and YANDEX_SECRET:
+    SOCIALACCOUNT_PROVIDERS["yandex"]["APP"] = {
+        "client_id": YANDEX_CLIENT_ID,
+        "secret": YANDEX_SECRET,
+        "key": "",
+    }
+
+if VK_CLIENT_ID and VK_SECRET:
+    SOCIALACCOUNT_PROVIDERS["vk"]["APP"] = {
+        "client_id": VK_CLIENT_ID,
+        "secret": VK_SECRET,
+        "key": "",
+    }
+
+# ✅ Dj-Rest-Auth: используем наш кастомный RegisterSerializer (вы уже его расширяли)
+REST_AUTH_REGISTER_SERIALIZERS = {
+    "REGISTER_SERIALIZER": "accounts.serializers.RegisterSerializer",  # ✅ ДОБАВЛЕНО
 }
 
 # =======================
@@ -427,3 +509,48 @@ THUMB_MAX_ORIGINAL_BYTES = 8 * 1024 * 1024  # 8 MB
 
 # Таймауты для скачивания внешних картинок
 THUMB_REQUEST_TIMEOUT = (6.0, 12.0)  # (connect, read), seconds
+
+# Путь: backend/settings.py
+# Назначение: Добавить консольные логи для сети импортёра (rssfeed.net) не ломая существующие LOGGING.
+
+# --- [ДОБАВЛЕНО] Логирование для импортёра RSS (rssfeed.net) ---
+import logging
+
+DEFAULT_CONSOLE_HANDLER = {
+    "class": "logging.StreamHandler",
+    "level": "INFO",
+    "formatter": "simple",
+}
+
+DEFAULT_FORMATTERS = {
+    "simple": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
+}
+
+LOGGING = globals().get("LOGGING", {"version": 1, "disable_existing_loggers": False, "handlers": {}, "formatters": {}, "loggers": {}})
+
+# Объединим форматтеры/обработчики (не затирая существующие)
+LOGGING.setdefault("formatters", {}).update({k: v for k, v in DEFAULT_FORMATTERS.items() if k not in LOGGING["formatters"]})
+LOGGING.setdefault("handlers", {})
+if "console" not in LOGGING["handlers"]:
+    LOGGING["handlers"]["console"] = DEFAULT_CONSOLE_HANDLER
+
+# Точечные логгеры
+LOGGING.setdefault("loggers", {}).update({
+    # сетевой слой импортёра: увидите коды типа LOCAL_BLOCKED_10013, TIMEOUT_* и т.п.
+    "rssfeed.net": {
+        "handlers": ["console"],
+        "level": "INFO",
+        "propagate": False,
+    },
+    # сама команда импорта (если вы логируете под этим именем)
+    "rssfeed": {
+        "handlers": ["console"],
+        "level": "INFO",
+        "propagate": True,
+    },
+})
+# Путь: backend/settings.py
+# Назначение: Мягкий оверрайд протокола для allauth в ЛОКАЛЬНОЙ разработке без ngrok.
+# НИЧЕГО НЕ УДАЛЯЕМ — просто добавляем финальное условие.
+if DEBUG and not NGROK_HTTPS_DOMAIN:
+    ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http"
