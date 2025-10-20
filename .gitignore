@@ -71,3 +71,5 @@ htmlcov/
 .tox/
 .pytest_cache/
 .mypy_cache/
+
+backend/var/backups/*.csv
