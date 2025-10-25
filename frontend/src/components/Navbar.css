@@ -362,4 +362,105 @@ body.theme-white {
   filter: brightness(105%) contrast(115%);
 }
 
-/* остальные стили светлых тем — без изменений */
+/* Путь: frontend/src/components/Navbar.css
+   Назначение: стили адаптивной фиксированной шапки IzotovLife
+   Дополнение:
+   ✅ Стили для сетки категорий в выпадающем меню (.dropdown-grid / .dropdown-card / .overlay)
+   (Остальной файл оставлен без изменений — вставьте целиком, он совместим с вашей текущей версией)
+*/
+
+/* ...ваш текущий файл до блока .dropdown-menu — БЕЗ ИЗМЕНЕНИЙ... */
+
+/* ---------- ДРОПДАУН "Ещё" ---------- */
+.cat-dropdown {
+  position: relative;
+  cursor: pointer;
+}
+
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 120%;
+  left: 0;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 10px; /* было 6px — чуть скруглим под карточки */
+  min-width: 280px;
+  z-index: 2147483645;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  padding: 10px; /* чтобы сетка не липла к краю */
+}
+
+/* ✅ Сетка карточек категорий */
+.dropdown-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.dropdown-card {
+  position: relative;
+  width: 160px;
+  height: 100px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: block;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #0a0f1a;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.dropdown-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  border-color: rgba(0,180,255,0.35);
+}
+
+.dropdown-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.dropdown-card:hover img {
+  transform: scale(1.05);
+}
+
+.dropdown-card .overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.65) 100%);
+  text-shadow: 0 0 6px rgba(0,0,0,0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-item { /* оставлено для совместимости, если где-то ещё используется */
+  display: block;
+  padding: 6px 10px;
+  color: white;
+  text-decoration: none;
+  transition: background 0.2s, color 0.3s, text-shadow 0.3s;
+}
+
+.dropdown-item:hover {
+  background: rgba(0, 180, 255, 0.1);
+  color: #00b4ff;
+  text-shadow: 0 0 6px #00b4ff;
+}
+
+/* ...остальной файл без изменений... */

@@ -1,9 +1,6 @@
 // Путь: frontend/src/components/SuggestNewsModal.jsx
-// Назначение: Модальное окно "Предложить новость" с автофокусом, fade-out и мгновенной отправкой.
-// Обновлено:
-//   ✅ Добавлен useCallback для handleClose (исправлено ESLint-предупреждение).
-//   ✅ Код оптимизирован и стабилен.
-//   ✅ Без задержек, без ошибок, без предупреждений.
+// Назначение: Модальное окно "Предложить новость" с мгновенной отправкой на новый бэкенд.
+// Поддержка: заголовок, текст новости, изображение, видео, капча, скроллируемая форма.
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { suggestNews } from "../Api";
@@ -15,17 +12,19 @@ export default function SuggestNewsModal({ open, onClose }) {
     last_name: "",
     email: "",
     phone: "",
+    title: "",
     message: "",
     website: "", // honeypot
+    recaptcha: "",
+    image_file: null,
+    video_file: null,
   });
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
   const [closing, setClosing] = useState(false);
-  const dialogRef = useRef(null);
   const firstInputRef = useRef(null);
 
-  // ✅ handleClose обёрнут в useCallback (устраняет warning)
   const handleClose = useCallback(() => {
     setClosing(true);
     setTimeout(() => {
@@ -34,7 +33,7 @@ export default function SuggestNewsModal({ open, onClose }) {
     }, 250);
   }, [onClose]);
 
-  // --- ESC закрытие ---
+  // ESC закрытие
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") handleClose();
@@ -43,16 +42,16 @@ export default function SuggestNewsModal({ open, onClose }) {
       window.addEventListener("keydown", onKey);
       return () => window.removeEventListener("keydown", onKey);
     }
-  }, [open, handleClose]); // ✅ теперь ESLint доволен
+  }, [open, handleClose]);
 
-  // --- Автофокус на первое поле ---
+  // Автофокус
   useEffect(() => {
     if (open && firstInputRef.current) {
       setTimeout(() => firstInputRef.current.focus(), 100);
     }
   }, [open]);
 
-  // --- Сброс ошибок при открытии ---
+  // Сброс при открытии
   useEffect(() => {
     if (open) {
       setErrors({});
@@ -63,9 +62,15 @@ export default function SuggestNewsModal({ open, onClose }) {
 
   if (!open) return null;
 
-  const set = (k) => (e) => setForm((s) => ({ ...s, [k]: e.target.value }));
+  const setField = (key) => (e) =>
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
-  async function onSubmit(e) {
+  const onFileChange = (key) => (e) => {
+    const file = e.target.files[0];
+    setForm((prev) => ({ ...prev, [key]: file || null }));
+  };
+
+  const onSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
     setSuccess(false);
@@ -74,48 +79,42 @@ export default function SuggestNewsModal({ open, onClose }) {
     if (!form.first_name.trim()) errs.first_name = "Укажите имя";
     if (!form.last_name.trim()) errs.last_name = "Укажите фамилию";
     if (!form.email.trim()) errs.email = "Укажите e-mail";
+    if (!form.title.trim()) errs.title = "Укажите заголовок новости";
     if (!form.message.trim() || form.message.trim().length < 15)
       errs.message = "Опишите новость подробнее (минимум 15 символов)";
     if (Object.keys(errs).length) {
       setErrors(errs);
       return;
     }
+    if (form.website) return; // honeypot
 
-    // ⚡ Мгновенная реакция
     setSending(true);
-    setSuccess(true);
 
-    const payload = { ...form };
-    setForm({
-      first_name: "",
-      last_name: "",
-      email: "",
-      phone: "",
-      message: "",
-      website: "",
-    });
+    try {
+      await suggestNews(form);
+      setSuccess(true);
+      setForm({
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        title: "",
+        message: "",
+        website: "",
+        recaptcha: "",
+        image_file: null,
+        video_file: null,
+      });
+    } catch (err) {
+      console.error("Ошибка при отправке новости:", err);
+      setErrors({ _common: err.message });
+      setSuccess(false);
+    } finally {
+      setSending(false);
+    }
 
-    // Асинхронная отправка выполняется в фоне
-    (async () => {
-      try {
-        const res = await suggestNews(payload);
-        if (!res?.ok) {
-          console.warn("Ошибка при отправке:", res);
-          setErrors({ _common: "Не удалось отправить. Попробуйте позже." });
-          setSuccess(false);
-        }
-      } catch (err) {
-        console.error("Ошибка сети при отправке новости:", err);
-        setErrors({ _common: "Ошибка сети" });
-        setSuccess(false);
-      } finally {
-        setSending(false);
-      }
-    })();
-
-    // Автоматическое закрытие через 2.5 секунды
     setTimeout(() => handleClose(), 2500);
-  }
+  };
 
   return (
     <div
@@ -127,19 +126,14 @@ export default function SuggestNewsModal({ open, onClose }) {
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        ref={dialogRef}
       >
         <div className={styles.header}>
           <div className={styles.title}>Предложить новость</div>
-          <button className={styles.close} onClick={handleClose} aria-label="Закрыть">
-            ×
-          </button>
+          <button className={styles.close} onClick={handleClose} aria-label="Закрыть">×</button>
         </div>
 
         {success ? (
-          <div className={styles.success}>
-            Спасибо! Ваша новость отправлена в редакцию.
-          </div>
+          <div className={styles.success}>Спасибо! Ваша новость отправлена в редакцию.</div>
         ) : (
           <form onSubmit={onSubmit} className={styles.form}>
             {errors._common && <div className={styles.error}>{errors._common}</div>}
@@ -150,12 +144,10 @@ export default function SuggestNewsModal({ open, onClose }) {
                 ref={firstInputRef}
                 className={styles.input}
                 value={form.first_name}
-                onChange={set("first_name")}
+                onChange={setField("first_name")}
                 placeholder="Иван"
               />
-              {errors.first_name && (
-                <div className={styles.fieldError}>{errors.first_name}</div>
-              )}
+              {errors.first_name && <div className={styles.fieldError}>{errors.first_name}</div>}
             </div>
 
             <div className={styles.row}>
@@ -163,12 +155,10 @@ export default function SuggestNewsModal({ open, onClose }) {
               <input
                 className={styles.input}
                 value={form.last_name}
-                onChange={set("last_name")}
+                onChange={setField("last_name")}
                 placeholder="Иванов"
               />
-              {errors.last_name && (
-                <div className={styles.fieldError}>{errors.last_name}</div>
-              )}
+              {errors.last_name && <div className={styles.fieldError}>{errors.last_name}</div>}
             </div>
 
             <div className={styles.row}>
@@ -177,12 +167,10 @@ export default function SuggestNewsModal({ open, onClose }) {
                 className={styles.input}
                 type="email"
                 value={form.email}
-                onChange={set("email")}
+                onChange={setField("email")}
                 placeholder="you@example.com"
               />
-              {errors.email && (
-                <div className={styles.fieldError}>{errors.email}</div>
-              )}
+              {errors.email && <div className={styles.fieldError}>{errors.email}</div>}
             </div>
 
             <div className={styles.row}>
@@ -190,12 +178,21 @@ export default function SuggestNewsModal({ open, onClose }) {
               <input
                 className={styles.input}
                 value={form.phone}
-                onChange={set("phone")}
+                onChange={setField("phone")}
                 placeholder="+7 900 000-00-00"
               />
-              {errors.phone && (
-                <div className={styles.fieldError}>{errors.phone}</div>
-              )}
+              {errors.phone && <div className={styles.fieldError}>{errors.phone}</div>}
+            </div>
+
+            <div className={styles.row}>
+              <label className={styles.label}>Заголовок новости*</label>
+              <input
+                className={styles.input}
+                value={form.title}
+                onChange={setField("title")}
+                placeholder="Краткий заголовок новости"
+              />
+              {errors.title && <div className={styles.fieldError}>{errors.title}</div>}
             </div>
 
             <div className={styles.row}>
@@ -203,21 +200,25 @@ export default function SuggestNewsModal({ open, onClose }) {
               <textarea
                 className={styles.textarea}
                 value={form.message}
-                onChange={set("message")}
+                onChange={setField("message")}
                 placeholder="Кто? Что? Где? Когда? Подробности, ссылки, факты…"
                 rows={6}
               />
-              {errors.message && (
-                <div className={styles.fieldError}>{errors.message}</div>
-              )}
+              {errors.message && <div className={styles.fieldError}>{errors.message}</div>}
             </div>
 
-            {/* Honeypot (скрытое поле) */}
+            <div className={styles.row}>
+              <label className={styles.label}>Фото / Видео</label>
+              <input type="file" accept="image/*,video/*" onChange={onFileChange("image_file")} />
+              <input type="file" accept="image/*,video/*" onChange={onFileChange("video_file")} />
+              <small>Поддерживаются форматы: jpg, png, gif, mp4</small>
+            </div>
+
             <div className={styles.honeypot} aria-hidden="true">
               <label>Ваш сайт</label>
               <input
                 value={form.website}
-                onChange={set("website")}
+                onChange={setField("website")}
                 tabIndex={-1}
                 autoComplete="off"
               />
@@ -225,7 +226,7 @@ export default function SuggestNewsModal({ open, onClose }) {
 
             <div className={styles.actions}>
               <button className={styles.submit} type="submit" disabled={sending}>
-                {sending ? "Отправляем…" : "Отправить"}
+                {sending ? "Отправляем…" : "Отправить новость"}
               </button>
               <button className={styles.secondary} type="button" onClick={handleClose}>
                 Отмена

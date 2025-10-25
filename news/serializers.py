@@ -31,7 +31,7 @@ class CategorySerializer(serializers.ModelSerializer):
             .first()
         )
         if news and news.image:
-            return news.image  # у тебя это CharField/URLField
+            return news.image
 
         # Если нет — берём самую свежую Article с обложкой
         art = (
@@ -59,12 +59,13 @@ class ArticleSerializer(serializers.ModelSerializer):
     summary = serializers.SerializerMethodField()
     seo_url = serializers.SerializerMethodField()
     category_display = serializers.SerializerMethodField()
+    cover_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
         fields = [
             "id", "title", "slug", "content", "summary",
-            "created_at", "published_at", "cover_image",
+            "created_at", "published_at", "cover_image", "cover_image_url",
             "type", "seo_url", "category_display",
         ]
 
@@ -83,6 +84,11 @@ class ArticleSerializer(serializers.ModelSerializer):
         cat = obj.categories.first()
         return cat.name if cat else "Новости"
 
+    def get_cover_image_url(self, obj):
+        if getattr(obj, "cover_image", None):
+            return obj.cover_image.url if hasattr(obj.cover_image, "url") else obj.cover_image
+        return settings.MEDIA_URL + "defaults/default_news.png"
+
 
 class NewsSourceSerializer(serializers.ModelSerializer):
     """Источник новостей (РИА, ТАСС и т.п.)."""
@@ -98,31 +104,24 @@ class ImportedNewsSerializer(serializers.ModelSerializer):
     category_display = serializers.SerializerMethodField()
     summary = serializers.SerializerMethodField()
     external_url = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ImportedNews
         fields = [
             "id", "title", "slug",
-            "summary",  # ✅ только summary, без content
-            "image", "link", "external_url",
+            "summary",
+            "image", "image_url", "link", "external_url",
             "published_at", "category", "created_at",
             "feed_url", "type", "source",
             "seo_url", "category_display",
         ]
 
     def get_summary(self, obj):
-        # Возвращаем summary, как раньше (не ломаем старые данные)
-        if obj.summary:
-            return obj.summary.strip()
-        return ""
+        return obj.summary.strip() if obj.summary else ""
 
     def get_external_url(self, obj):
-        # Если нет прямой ссылки — пробуем feed_url
-        if obj.link:
-            return obj.link
-        if obj.feed_url:
-            return obj.feed_url
-        return None
+        return obj.link or obj.feed_url or None
 
     def get_seo_url(self, obj):
         try:
@@ -133,9 +132,14 @@ class ImportedNewsSerializer(serializers.ModelSerializer):
     def get_category_display(self, obj):
         if obj.category:
             return obj.category.name
-        if obj.source_fk:
+        if getattr(obj, "source_fk", None):
             return obj.source_fk.name
         return "Новости"
+
+    def get_image_url(self, obj):
+        if getattr(obj, "image", None):
+            return obj.image
+        return settings.MEDIA_URL + "defaults/default_news.png"
 
 
 class NewsSerializer(serializers.Serializer):

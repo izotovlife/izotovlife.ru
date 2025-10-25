@@ -1,49 +1,58 @@
 /* Путь: frontend/src/pages/NewsDetailPage.module.css
    Назначение: Стили детальной страницы новости IzotovLife.
-   Исправления:
-     ✅ CSS Grid с фиксированными колонками и max-width контейнера.
-     ✅ Боковые колонки скроллятся внутри, если контент длиннее центральной.
-     ✅ Ограничена высота изображения, чтобы не раздувало центральную колонку.
-     ✅ Футер остаётся видимым.
+
+   В этой версии:
+   • Единый, чистый файл без дублей.
+   • Дата и источник — в одной строке «пилюль» (мета-блок).
+   • Ссылка-источник не тускнеет в :visited (цвет наследуется).
+   • «Последние новости» (.latestItem) — шрифт как у остальных ссылок (16px).
+   • Полная совместимость со старыми классами проекта.
 */
 
-.pageWrap {
-  /* 280 + 760 + 280 + 2*20 = 1360 */
+/* ===================== БАЗА/КОНТЕЙНЕРЫ ===================== */
+
+.page {
+  padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto 80px;
+}
+
+/* Совместимый грид-лейаут (.pageWrap и .columns эквивалентны) */
+.pageWrap,
+.columns {
   max-width: 1360px;
   margin: 0 auto;
-
   display: grid;
-  grid-template-columns: 280px 760px 280px;
+  grid-template-columns: 280px minmax(720px, 1fr) 280px;
   gap: 20px;
   justify-content: center;
   align-items: start;
-  padding: 20px;
-  width: 100%;
-  position: static;
-  height: auto;
-  overflow: visible;
-  box-sizing: border-box;
-  margin-bottom: 80px;
 }
 
-/* все три колонки — flex-контейнеры */
-.pageWrap > * {
+/* Внутри грид-колонок — колонковая раскладка */
+.pageWrap > *,
+.columns > * {
   display: flex;
   flex-direction: column;
 }
 
-/* Левая колонка */
-.leftAside {
+/* Боковые колонки */
+.leftAside,
+.rightAside,
+.side {
   background: var(--bg-card, #0f1115);
-  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   border-radius: 14px;
   padding: 14px;
-
-  /* ⬇ ключ: если контент длиннее, прокручиваем внутри */
   overflow-y: auto;
-  min-height: 0; /* нужно для корректного скролла в гриде */
+  min-height: 0;
 }
 
+/* Карточные элементы (совместимость со старым .card) */
+.card { background: transparent; border: none; padding: 0; }
+
+.cardTitle,
 .sectionH {
   font-size: 18px;
   font-weight: 600;
@@ -51,30 +60,14 @@
   color: var(--fg, #fff);
 }
 
-.latestList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  /* flex-grow не нужен, высота задана из JS; излишек — прокрутка */
-}
+.scrollBox { display: flex; flex-direction: column; gap: 6px; }
 
-.latestItem {
-  font-size: 15px;
-  color: var(--fg, #fff);
-  text-decoration: none;
-  border-bottom: 1px solid var(--border, rgba(255,255,255,0.1));
-  padding-bottom: 6px;
-  transition: color 0.2s ease;
-}
-
-.latestItem:hover {
-  color: var(--accent, #3ea6ff);
-}
+.muted    { color: var(--muted, rgba(255, 255, 255, 0.7)); font-size: 14px; }
 
 /* Центральная колонка */
 .main {
   background: var(--bg-card, #0f1115);
-  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   border-radius: 14px;
   padding: 20px;
   display: flex;
@@ -82,29 +75,50 @@
   align-items: flex-start;
 }
 
+/* ===================== ЗАГОЛОВОК/КРОШКИ ===================== */
+
 .title {
   font-size: 23px;
   line-height: 1.3;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin: 0 0 12px;
   color: var(--fg, #fff);
 }
 
-.meta {
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
-  color: var(--muted, rgba(255,255,255,0.7));
-  margin-bottom: 12px;
+  color: #5a6b84;
+  margin: 0 0 16px;
+  flex-wrap: wrap;
 }
 
-.cover {
+.breadcrumbs a { color: #1a73e8; text-decoration: none; }
+.breadcrumbs a:hover { text-decoration: underline; }
+.breadcrumbSeparator { margin: 0 4px; color: #999; }
+
+/* ===================== КРЫШКА/ОБЛОЖКА ===================== */
+
+.cover { width: 100%; display: block; margin: 0 0 24px; }
+
+.coverImg {
   width: 100%;
   height: auto;
-  max-height: 520px; /* ограничение по высоте фотографии */
   border-radius: 10px;
-  margin-bottom: 12px;
   object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.coverImg:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
+/* ===================== ТЕКСТ/МЕДИА В ТЕЛЕ ===================== */
+
+.text,
 .body {
   font-size: 17px;
   line-height: 1.6;
@@ -113,85 +127,212 @@
   flex-grow: 1;
 }
 
-/* Ссылка "Читать в источнике" */
-.external {
-  margin-top: auto;
+.text img,
+.text video,
+.body img,
+.body video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 24px 0;
+  border-radius: 10px;
+  object-fit: cover;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.text img:hover,
+.text video:hover,
+.body img:hover,
+.body video:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
-.externalLink {
-  color: var(--accent, #f9c85c);
+/* SmartMedia (через :global — для CSS Modules) */
+.main :global(.smartMedia),
+.main :global(.smartMedia img),
+.main :global(.smartMedia video) {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.main :global(.smartMedia):hover,
+.main :global(.smartMedia img):hover,
+.main :global(.smartMedia video):hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+}
+
+/* ===================== ЛЕВАЯ КОЛОНКА: ПОСЛЕДНИЕ ===================== */
+
+.latestList { display: flex; flex-direction: column; gap: 8px; }
+
+.linkLine,
+.latestItem {
+  display: block;
+  white-space: normal;
+  line-height: 1.35;
+  margin: 0 0 8px;
+  color: var(--fg, #fff);
   text-decoration: none;
-  font-size: 15px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  padding-bottom: 6px;
+  transition: color 0.2s ease;
+  font-size: 16px;                 /* базовый размер, как у остальных ссылок */
 }
+.linkLine:hover,
+.latestItem:hover { color: var(--accent, #3ea6ff); }
 
-.externalLink:hover {
-  text-decoration: underline;
-}
+/* ===================== ПРАВАЯ КОЛОНКА: ПОХОЖИЕ ===================== */
 
-/* Правая колонка */
-.rightAside {
-  background: var(--bg-card, #0f1115);
-  border: 1px solid var(--border, rgba(255,255,255,0.1));
-  border-radius: 14px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-
-  /* ⬇ тоже скроллим внутри при переполнении */
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.relList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+.relList { display: flex; flex-direction: column; gap: 10px; }
 
 .relItem {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   text-decoration: none;
-  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   padding: 8px;
   transition: background 0.2s ease;
 }
+.relItem:hover { background: color-mix(in srgb, var(--bg-card) 90%, black 10%); }
 
-.relItem:hover {
-  background: color-mix(in srgb, var(--bg-card) 90%, black 10%);
+.relThumb { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; background: #0a0f1a; }
+.relTitle { font-size: 14px; color: var(--fg, #fff); line-height: 1.35; margin-bottom: 3px; }
+.relSource { font-size: 12px; color: var(--muted, rgba(255, 255, 255, 0.7)); }
+.relEmpty  { font-size: 14px; color: var(--muted, rgba(255, 255, 255, 0.7)); }
+
+/* ===================== КНОПКА «ЧИТАТЬ В ИСТОЧНИКЕ» ===================== */
+
+.external { margin-top: auto; }
+
+.externalLink {
+  color: var(--accent, #f9c85c);
+  text-decoration: none;
+  font-size: 15px;
+}
+.externalLink:hover { text-decoration: underline; }
+
+/* ===================== META: ДАТА/ИСТОЧНИК (ПИЛЮЛИ) ===================== */
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 14px;
 }
 
-.relThumb {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  object-fit: cover;
-  background: #0a0f1a;
+/* Базовая пилюля */
+.metaPill {
+  --chip-bg: var(--bg-muted, #f4f6f8);
+  --chip-border: var(--border, #e5e7eb);
+  --chip-text: var(--text, #111827);
+
+  display: inline-flex !important; /* защита от внешних правил */
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  min-height: 30px;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  border-radius: 999px;
+  font-size: 0.94rem;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(0,0,0,.03);
+  transition: border-color .2s, background-color .2s, transform .15s;
+}
+.metaPill time { color: inherit; }
+
+/* Модификаторы (на будущее) */
+.metaPillTime { }
+.metaPillSource { }
+
+/* Иконки внутри пилюль */
+.metaIcon { width: 16px; height: 16px; opacity: 0.9; }
+.metaFav  { width: 16px; height: 16px; border-radius: 4px; object-fit: cover; }
+
+/* Заглушка-точка, если нет фавиконки */
+.sourceDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted, #6b7280);
+  display: inline-block;
 }
 
-.relTitle {
-  font-size: 14px;
-  color: var(--fg, #fff);
-  line-height: 1.35;
-  margin-bottom: 3px;
+/* Ссылка-источник — одинаковый цвет и для :visited */
+.metaSourceLink,
+.metaSourceLink:visited,
+.metaSourceLink:active {
+  color: inherit;
+  text-decoration: none;
 }
 
-.relSource {
-  font-size: 12px;
-  color: var(--muted, rgba(255,255,255,0.7));
+/* Hover у источника */
+.metaPillSource:hover {
+  border-color: var(--accent, #0b57d0);
+  transform: translateY(-1px);
 }
 
-/* Адаптив: на мобильном показываем только центральную колонку */
+/* Подпись и имя источника */
+.metaSourceLabel {
+  color: var(--text-muted, #6b7280);
+  opacity: .85;
+  margin-right: 2px;
+}
+.metaSourceName {
+  font-weight: 600;
+  color: inherit;
+}
+
+/* ===================== ТЁМНАЯ ТЕМА ===================== */
+
+:root[data-theme="dark"] .metaPill,
+body.theme-dark .metaPill,
+:root.dark .metaPill,
+body.dark .metaPill,
+html.dark .metaPill,
+.theme-dark .metaPill {
+  --chip-bg: var(--bg-muted, #121317);
+  --chip-border: var(--border, #262626);
+  --chip-text: var(--text, #e5e7eb);
+  border-color: var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  box-shadow: 0 1px 0 rgba(255,255,255,.03);
+}
+
+:root[data-theme="dark"] .metaSourceLabel,
+body.theme-dark .metaSourceLabel,
+:root.dark .metaSourceLabel,
+body.dark .metaSourceLabel,
+html.dark .metaSourceLabel,
+.theme-dark .metaSourceLabel {
+  color: var(--text-muted, #94a3b8);
+  opacity: .9;
+}
+
+/* Доступность: клавиатура */
+.metaSourceLink:focus-visible {
+  outline: 2px solid var(--accent, #0b57d0);
+  outline-offset: 2px;
+  border-color: var(--accent, #0b57d0);
+}
+
+/* ===================== АДАПТИВ ===================== */
+
 @media (max-width: 960px) {
-  .pageWrap {
-    grid-template-columns: 1fr;
-    max-width: 760px;
-    margin-bottom: 60px;
-  }
+  .page { margin-bottom: 60px; }
+  .pageWrap,
+  .columns { grid-template-columns: 1fr; max-width: 760px; }
   .leftAside,
-  .rightAside {
-    display: none;
-  }
+  .rightAside,
+  .side { display: none; }
 }

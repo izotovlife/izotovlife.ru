@@ -1,0 +1,22 @@
+<!-- Путь: backend/templates/registration/activation_failed.html
+     Назначение: Сообщение об ошибке при активации (невалидная/устаревшая ссылка) -->
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Не удалось подтвердить e-mail</title>
+    <style>
+      body { font-family: Arial, sans-serif; background:#0b1220; color:#ffd2d2; display:flex; min-height:100vh; align-items:center; justify-content:center; }
+      .card { background:#2a0f12; padding:24px 28px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.35); max-width:540px; }
+      h1 { margin:0 0 8px; font-size:22px; }
+      p { margin:0; line-height:1.55; }
+      a { color:#ffd2d2; text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Ссылка недействительна или уже использована</h1>
+      <p>Запросите регистрацию ещё раз или войдите, если уже активировали учётную запись.</p>
+    </div>
+  </body>
+</html>
