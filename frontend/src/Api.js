@@ -1,21 +1,24 @@
 /* Путь: frontend/src/Api.js
    Назначение: Axios-инстанс и функции API (новости, категории, поиск, SEO-маршруты, аутентификация).
-   Что внутри (добавлено, ничего важного не удалено):
-   - ✅ Горячий фолбэк TEST_FEED: если /api/news/feed/ упал/пусто — показываем тестовые новости.
-   - ✅ Тумблер заглушки: localStorage.useFakeFeed = "1" ИЛИ ?fake=1 в URL.
-   - ✅ Пагинация фолбэка (page, page_size), совместима с текущим fetchNews().
-   - ✅ buildThumbnailUrl(): НЕ шлём в ресайзер data:/blob:/about: и аудио.
-   - ✅ Жёсткая нормализация путей категорий + tryGet(), attachSeoUrl(), resolveNewsApi и пр. сохранены.
-   - ✅ ДОПОЛНЕНО: fetchNewsFeedText()/fetchNewsFeedImages() с тем же фолбэком (если где-то используются).
+   Что внутри:
+   - ✅ Правильный импорт axios: import axios from 'axios'
+   - ✅ База API берётся из REACT_APP_API_BASE, иначе http://127.0.0.1:8000/api
+   - ✅ buildThumbnailUrl() поправлен на /api/media/thumbnail/ (без /news)
+   - ✅ Горячий фолбэк TEST_FEED (по флагу localStorage.useFakeFeed="1" или ?fake=1)
+   - Остальная логика сохранена
 */
 
-import axios from "axios/dist/browser/axios.cjs";
+import axios from "axios";
 
 // ---------------- БАЗОВАЯ НАСТРОЙКА ----------------
-export const API_BASE = "http://localhost:8000/api";
+export const API_BASE = (
+  process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000/api"
+).replace(/\/$/, ""); // убираем хвостовой слэш, чтобы // не возникал
 
 const api = axios.create({
   baseURL: API_BASE,
+  withCredentials: true, // можно оставить true — CORS у тебя настроен
+  headers: { "Content-Type": "application/json" },
 });
 
 // ---------------- ФОЛБЭКИ (ТЕСТОВАЯ ЛЕНТА) ----------------
@@ -196,7 +199,6 @@ export function slugCandidates(raw) {
 /**
  * tryGet(paths, config?)
  * Перебирает массив путей (или одну строку), делает GET, возвращает первый успешный response.
- * Для дебага шлёт warn со статусами — помогает отловить неправильный маршрут.
  */
 export async function tryGet(paths, config = {}) {
   const list = typeof paths === "string" ? [paths] : Array.isArray(paths) ? paths : [];
@@ -254,10 +256,10 @@ function isDataOrBlob(url) {
 
 /**
  * buildThumbnailUrl(src, opts?)
- * Возвращает URL ресайзера /api/news/media/thumbnail/ для http(s)-изображений.
- * - НЕ трогаем аудио (вернём null)
- * - НЕ трогаем data:/blob:/about: (вернём исходник как есть)
- * - Корректно кодируем src.
+ * Отдаём /api/media/thumbnail/ (НЕ /news/media/).
+ * - НЕ трогаем аудио (null)
+ * - НЕ трогаем data:/blob:/about: (возврат исходника)
+ * - http(s) кодируем в query.
  */
 export function buildThumbnailUrl(
   src,
@@ -265,10 +267,10 @@ export function buildThumbnailUrl(
 ) {
   if (!src) return null;
   if (isAudioUrl(src)) return null;
-  if (isDataOrBlob(src)) return src; // ← главное лекарство от 400
+  if (isDataOrBlob(src)) return src;
   if (!isHttpLike(src)) return src;
 
-  const base = `${API_BASE}/news/media/thumbnail/`;
+  const base = `${API_BASE}/media/thumbnail/`;
   const params = new URLSearchParams({
     src: String(src),
     w: String(w),
@@ -280,16 +282,14 @@ export function buildThumbnailUrl(
   return `${base}?${params.toString()}`;
 }
 
-// алиас для старого кода (если где-то импортировали buildThumb)
+// алиас для старого кода
 export const buildThumb = buildThumbnailUrl;
 
 // ---------------- ЛЕНТА ----------------
 export async function fetchNews(page = 1, page_size = 20) {
-  // Принудительный тестовый режим
   if (shouldUseFakeFeed()) {
     return paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
   }
-
   try {
     const r = await api.get("/news/feed/", { params: { page, page_size } });
     let data = [];
@@ -307,12 +307,11 @@ export async function fetchNews(page = 1, page_size = 20) {
     }
     return data.map((n) => attachSeoUrl(n));
   } catch (err) {
-    console.warn("Ошибка загрузки новостей, использую TEST_FEED:", err?.message || err);
+    console.warn("Ошибка загрузки новостей, используем TEST_FEED:", err?.message || err);
     return paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
   }
 }
 
-// Дополнительно: правый столбец (если используется отдельно где-то в коде)
 export async function fetchNewsFeedText({ page = 1, page_size = 30 } = {}) {
   if (shouldUseFakeFeed()) {
     const results = paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
@@ -377,9 +376,6 @@ export async function fetchCategories() {
   }
 }
 
-/** Быстрый батч-эндпоинт обложек категорий.
- * Если нет — вернём {} (фронт сам сделает fallback).
- */
 export async function fetchCategoryCovers() {
   try {
     const r = await api.get("/categories/covers/");
@@ -396,7 +392,6 @@ export async function fetchCategoryCovers() {
   }
 }
 
-/** Фолбэк-обложка категории из /news/feed/images/?category=<slug>&limit=1 */
 export async function fetchFirstImageForCategory(slug) {
   if (!slug) return null;
   try {
@@ -423,9 +418,7 @@ export async function fetchFirstImageForCategory(slug) {
 
 /**
  * fetchCategoryNews(slug, opts)
- * opts может быть:
- *   - числом (page)
- *   - объектом { page=1, limit, allowLegacySlugRoute=false }
+ * opts: число (page) или объект { page=1, limit, allowLegacySlugRoute=false }
  */
 export async function fetchCategoryNews(slug, opts = 1) {
   if (!slug) return [];
@@ -436,14 +429,13 @@ export async function fetchCategoryNews(slug, opts = 1) {
   const encoded = encodeURIComponent(slug);
 
   const paths = [
-    `/news/category/${encoded}/`, // ← правильный маршрут
+    `/news/category/${encoded}/`,
     `/category/${encoded}/`,
-    ...(allowLegacy ? [`/news/${encoded}/`] : []), // ← устаревший
+    ...(allowLegacy ? [`/news/${encoded}/`] : []),
   ];
 
   const params = limit ? { page, limit } : { page };
 
-  // Если включён общий фейк — фильтруем TEST_FEED по категории
   if (shouldUseFakeFeed()) {
     const filtered = TEST_FEED.filter(
       (i) => (i.category?.slug || "").toLowerCase() === String(slug).toLowerCase()
@@ -464,7 +456,7 @@ export async function fetchCategoryNews(slug, opts = 1) {
       data = r.data.results.items;
 
     if (!Array.isArray(data) || data.length === 0) {
-      console.warn("⚠️ fetchCategoryNews: API пусто — включаю TEST_FEED (фильтр по категории).");
+      console.warn("⚠️ fetchCategoryNews: API пусто — TEST_FEED (фильтр по категории).");
       const filtered = TEST_FEED.filter(
         (i) => (i.category?.slug || "").toLowerCase() === String(slug).toLowerCase()
       );
@@ -473,7 +465,7 @@ export async function fetchCategoryNews(slug, opts = 1) {
     }
     return data.map((n) => attachSeoUrl(n));
   } catch (err) {
-    console.error("Ошибка загрузки новостей категории, TEST_FEED:", err?.message || err);
+    console.error("Ошибка категории, TEST_FEED:", err?.message || err);
     const filtered = TEST_FEED.filter(
       (i) => (i.category?.slug || "").toLowerCase() === String(slug).toLowerCase()
     );
@@ -540,7 +532,6 @@ export async function fetchArticle(arg1, arg2) {
   const cat = category || "news";
   const cands = slugCandidates(slug);
 
-  // 1) через резолвер
   try {
     const resolved = await resolveNews(cands[0] || slug);
     const detail = resolved?.detail_url;
@@ -550,7 +541,6 @@ export async function fetchArticle(arg1, arg2) {
     }
   } catch {}
 
-  // 2) фолбэки
   const paths = [
     ...cands.flatMap((s) => [
       `/news/article/${encodeURIComponent(cat)}/${encodeURIComponent(s)}/`,

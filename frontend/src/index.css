@@ -1,63 +1,104 @@
-/* frontend/src/index.css
-   Назначение: Tailwind + глобальные стили + скелетоны + кастомный лоадер + версии для слабовидящих
-   Путь: frontend/src/index.css */
+/* Путь: frontend/src/index.css
+   Назначение: Tailwind + глобальные стили + скелетоны + кастомный лоадер + версии для слабовидящих. */
 
-/* Сначала Tailwind */
+/* === 1) Tailwind === */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Дальше — твои кастомные переменные и стили */
-/* Базовые переменные оформлены через две темы: графитовую и белую. */
+/* === 2) Базовые переменные и темы ===
+   По умолчанию (в :root) — графитовая тема. */
 :root {
-  /* Значения по умолчанию = графитовая тема */
-  --app-bg: #20242c;            /* графитовый фон */
-  --app-text: #f6f7fb;          /* основной текст */
-  --app-border: #000000;        /* чёрные рамки */
-  --brand-accent: #d4af37;      /* золото */
-  --brand-accent-2: #ffcf6f;    /* светлее золота для градиента */
+  /* Графитовая — по умолчанию */
+  --app-bg: #20242c;          /* графитовый фон */
+  --app-text: #f6f7fb;        /* основной текст */
+  --app-border: #000000;      /* тёмные рамки (дефолт) */
+
+  --brand-accent: #d4af37;    /* золото */
+  --brand-accent-2: #ffcf6f;  /* светлее золота (hover) */
+
+  /* Карточки/контент */
   --card-bg: #111827;
   --border: var(--app-border);
+
+  /* Доп. токены, используемые модулями */
+  --fg: #f6f7fb;
+  --muted: #9aa4b2;
+  --accent: var(--brand-accent);
+  --bg-card: var(--card-bg);
 }
 
-body.theme-graphite {
+/* Графитовая тема: через класс или на <body> */
+body.theme-graphite,
+.theme-graphite {
+  color-scheme: dark;
+
   --app-bg: #20242c;
   --app-text: #f6f7fb;
   --app-border: #000000;
+
   --card-bg: #111827;
   --border: var(--app-border);
+
+  --fg: #f6f7fb;
+  --muted: #9aa4b2;
+  --accent: var(--brand-accent);
+  --bg-card: var(--card-bg);
 }
 
-body.theme-white {
+/* Белая тема: через класс или на <body> */
+body.theme-white,
+.theme-white {
+  color-scheme: light;
+
   --app-bg: #ffffff;
   --app-text: #111111;
-  --app-border: #4a4f59;        /* графитовый оттенок для рамок */
+  --app-border: rgba(0, 0, 0, 0.12); /* мягкая нейтральная рамка */
   --card-bg: #ffffff;
   --border: var(--app-border);
+
+  --fg: #111111;
+  --muted: rgba(17, 17, 17, 0.65);
+  --accent: var(--brand-accent);
+  --bg-card: var(--card-bg);
 }
 
-* { box-sizing: border-box }
-html, body, #root { height: 100% }
+/* === 3) Глобальные базовые стили === */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans','Helvetica Neue', Arial;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial;
   background: var(--app-bg);
   color: var(--app-text);
 }
 
-a { color: var(--brand-accent); text-decoration: none; }
-a:hover { opacity: .85 }
+/* Ссылки: единый цвет и единый hover во всём приложении */
+a {
+  color: var(--brand-accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--brand-accent-2);
+  text-decoration: underline;
+}
 
-/* --- Базовое меню --- */
+/* --- Базовое меню (например, сайдбар) --- */
 .sidebar-menu {
-  background: #111;
-  color: white;
+  background: var(--bg-card, #111);
+  color: var(--fg, #ffffff);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
 }
-.sidebar-menu a {
-  color: white;
+.sidebar-menu a { color: inherit; }
+
+/* В светлой теме ссылки внутри меню принудительно тёмные (читабельность) */
+body.theme-white .sidebar-menu a,
+.theme-white .sidebar-menu a {
+  color: #111111;
 }
 
-/* --- Стили для слабовидящих --- */
+/* === 4) Режимы для слабовидящих === */
 
 /* Жёлтый на чёрном */
 body.low-vision-yellow {
@@ -96,8 +137,265 @@ body.low-vision-white .sidebar-menu a {
 }
 
 /* Цвет крестика в меню */
-.close-btn {
-  color: white;
-}
+.close-btn { color: white; }
 body.low-vision-yellow .close-btn { color: #ff0 !important; }
 body.low-vision-white .close-btn { color: #fff !important; }
+
+/* === 5) Тематические оверрайды читабельности (append-only, не удалять) === */
+
+/* 5.1 Светлая тема → статические страницы/CKEditor: текст принудительно чёрный */
+body.theme-white .static-page,
+body.theme-white .static-page *:not(a),
+body.theme-white .page-static,
+body.theme-white .page-static *:not(a),
+body.theme-white .StaticPage,
+body.theme-white .StaticPage *:not(a),
+body.theme-white .ck-content,
+body.theme-white .ck-content *:not(a) {
+  color: #111 !important;
+  text-shadow: none !important;
+  opacity: 1 !important; /* на случай полупрозрачных стилей */
+}
+
+/* Ссылки внутри статичных страниц на светлой теме — читаемые, с нормальным hover */
+body.theme-white .static-page a,
+body.theme-white .page-static a,
+body.theme-white .StaticPage a,
+body.theme-white .ck-content a {
+  color: #0b57d0 !important;
+  text-decoration-color: #0b57d0 !important;
+}
+body.theme-white .static-page a:hover,
+body.theme-white .page-static a:hover,
+body.theme-white .StaticPage a:hover,
+body.theme-white .ck-content a:hover {
+  color: #0948ad !important;
+  text-decoration: underline !important;
+}
+
+/* 5.2 Тёмная тема → «пилюли» даты/источника на детальной странице: текст чёрный */
+body.theme-graphite .news-detail .meta,
+body.theme-graphite .news-detail .meta *,
+body.theme-graphite .news-detail [class*="pill"],
+body.theme-graphite .news-detail [class*="pill"] *,
+body.theme-graphite .news-detail [class*="chip"],
+body.theme-graphite .news-detail [class*="chip"] *,
+body.theme-graphite .news-detail [class*="badge"],
+body.theme-graphite .news-detail [class*="badge"] *,
+body.theme-graphite .news-detail [class*="date"],
+body.theme-graphite .news-detail [class*="date"] *,
+body.theme-graphite .news-detail [class*="source"],
+body.theme-graphite .news-detail [class*="source"] *,
+/* распространённые альтернативные контейнеры */
+body.theme-graphite .NewsDetailPage [class*="pill"],
+body.theme-graphite .NewsDetailPage [class*="pill"] *,
+body.theme-graphite .NewsDetailPage [class*="chip"],
+body.theme-graphite .NewsDetailPage [class*="chip"] *,
+body.theme-graphite .NewsDetailPage [class*="badge"],
+body.theme-graphite .NewsDetailPage [class*="badge"] *,
+body.theme-graphite .NewsDetailPage [class*="date"],
+body.theme-graphite .NewsDetailPage [class*="date"] *,
+body.theme-graphite .NewsDetailPage [class*="source"],
+body.theme-graphite .NewsDetailPage [class*="source"] * {
+  color: #111 !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* (опционально) если «пилюли» уже со светлым фоном — просто усилим контур */
+body.theme-graphite .news-detail [class*="pill"],
+body.theme-graphite .news-detail [class*="chip"],
+body.theme-graphite .news-detail [class*="badge"],
+body.theme-graphite .NewsDetailPage [class*="pill"],
+body.theme-graphite .NewsDetailPage [class*="chip"],
+body.theme-graphite .NewsDetailPage [class*="badge"] {
+  border-color: rgba(0, 0, 0, 0.18) !important;
+}
+/* === 8) Светлая тема: чёрный текст на статичных страницах из футера (append-only) === */
+body.theme-white .static-page,
+body.theme-white .page-static,
+body.theme-white .StaticPage,
+body.theme-white .policy-page,
+body.theme-white .privacy-page,
+body.theme-white .terms-page,
+body.theme-white .rules-page,
+body.theme-white .about-page,
+body.theme-white .editorial-page,
+body.theme-white .ads-page,
+body.theme-white .contacts-page,
+body.theme-white [data-page="static"],
+body.theme-white [data-static="true"] {
+  color: #000 !important;
+}
+
+/* Заголовки/абзацы/списки внутри этих страниц — гарантированно чёрные */
+body.theme-white .static-page h1,
+body.theme-white .static-page h2,
+body.theme-white .static-page h3,
+body.theme-white .static-page h4,
+body.theme-white .static-page h5,
+body.theme-white .static-page h6,
+body.theme-white .static-page p,
+body.theme-white .static-page li,
+body.theme-white .page-static h1,
+body.theme-white .page-static h2,
+body.theme-white .page-static h3,
+body.theme-white .page-static h4,
+body.theme-white .page-static h5,
+body.theme-white .page-static h6,
+body.theme-white .page-static p,
+body.theme-white .page-static li,
+body.theme-white .StaticPage h1,
+body.theme-white .StaticPage h2,
+body.theme-white .StaticPage h3,
+body.theme-white .StaticPage h4,
+body.theme-white .StaticPage h5,
+body.theme-white .StaticPage h6,
+body.theme-white .StaticPage p,
+body.theme-white .StaticPage li,
+body.theme-white [data-page="static"] h1,
+body.theme-white [data-page="static"] h2,
+body.theme-white [data-page="static"] h3,
+body.theme-white [data-page="static"] h4,
+body.theme-white [data-page="static"] h5,
+body.theme-white [data-page="static"] h6,
+body.theme-white [data-page="static"] p,
+body.theme-white [data-page="static"] li,
+body.theme-white [data-static="true"] h1,
+body.theme-white [data-static="true"] h2,
+body.theme-white [data-static="true"] h3,
+body.theme-white [data-static="true"] h4,
+body.theme-white [data-static="true"] h5,
+body.theme-white [data-static="true"] h6,
+body.theme-white [data-static="true"] p,
+body.theme-white [data-static="true"] li,
+body.theme-white .ck-content,
+body.theme-white .ck-content *:not(a) {
+  color: #000 !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* Ссылки на таких страницах — читаемые */
+body.theme-white .static-page a,
+body.theme-white .page-static a,
+body.theme-white .StaticPage a,
+body.theme-white [data-page="static"] a,
+body.theme-white [data-static="true"] a,
+body.theme-white .ck-content a {
+  color: #0b57d0 !important;
+  text-decoration-color: #0b57d0 !important;
+}
+body.theme-white .static-page a:hover,
+body.theme-white .page-static a:hover,
+body.theme-white .StaticPage a:hover,
+body.theme-white [data-page="static"] a:hover,
+body.theme-white [data-static="true"] a:hover,
+body.theme-white .ck-content a:hover {
+  color: #0948ad !important;
+  text-decoration: underline !important;
+}
+/* === 9) Светлая тема: статичные страницы из футера — чёрный текст (append-only) === */
+/* Покрываем самые типовые контейнеры статичных страниц + CKEditor.
+   Даже если у страницы нет спец.класса, правило сработает на main/article. */
+
+body.theme-white :where(
+  .static-page,
+  .page-static,
+  .StaticPage,
+  .policy-page,
+  .privacy-page,
+  .terms-page,
+  .rules-page,
+  .about-page,
+  .editorial-page,
+  .ads-page,
+  .contacts-page,
+  [data-page="static"],
+  [data-static="true"],
+  .ck-content,
+  .prose,
+  .content,
+  .page,
+  article,
+  main
+) :where(h1,h2,h3,h4,h5,h6,p,li,ul,ol,blockquote,small,span,div,dt,dd,code,pre,table,th,td,figcaption) {
+  color: #111 !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* Ссылки внутри статичных страниц — читаемые и с привычным hover */
+body.theme-white :where(
+  .static-page,
+  .page-static,
+  .StaticPage,
+  .policy-page,
+  .privacy-page,
+  .terms-page,
+  .rules-page,
+  .about-page,
+  .editorial-page,
+  .ads-page,
+  .contacts-page,
+  [data-page="static"],
+  [data-static="true"],
+  .ck-content,
+  .prose,
+  .content,
+  .page,
+  article,
+  main
+) a {
+  color: #0b57d0 !important;
+  text-decoration-color: #0b57d0 !important;
+}
+body.theme-white :where(
+  .static-page,
+  .page-static,
+  .StaticPage,
+  .policy-page,
+  .privacy-page,
+  .terms-page,
+  .rules-page,
+  .about-page,
+  .editorial-page,
+  .ads-page,
+  .contacts-page,
+  [data-page="static"],
+  [data-static="true"],
+  .ck-content,
+  .prose,
+  .content,
+  .page,
+  article,
+  main
+) a:hover {
+  color: #0948ad !important;
+  text-decoration: underline !important;
+}
+/* === 10) Футер: ссылки — чёрные в светлой теме (append-only) === */
+body.theme-white footer a,
+body.theme-white .footer a,
+body.theme-white .site-footer a,
+body.theme-white [data-role="footer"] a {
+  color: #000 !important;
+  text-decoration-color: #000 !important;
+}
+
+body.theme-white footer a:hover,
+body.theme-white .footer a:hover,
+body.theme-white .site-footer a:hover,
+body.theme-white [data-role="footer"] a:hover {
+  color: #000 !important;
+  text-decoration: underline !important;
+}
+
+/* (необязательно) если есть «серые» подписи в футере — делаем их тёмными */
+body.theme-white footer,
+body.theme-white .footer,
+body.theme-white .site-footer,
+body.theme-white [data-role="footer"] {
+  color: #111 !important;
+}
+

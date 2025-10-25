@@ -2,12 +2,16 @@
    Назначение: Стили карточки новости в ленте.
    Обновление:
      • Адаптация под светлые/жёлтые темы.
-     • Цвет источника теперь берёт системные переменные.
+     • Цвет источника берёт системные переменные.
      • Плавный hover без искажения контраста.
-*/
+     • Удалены маркеры merge-конфликта. */
 
+/* === Токены для этой карточки под разные темы === */
+:global(:root),
 :root,
+:global(body.theme-graphite),
 body.theme-graphite,
+:global(.theme-graphite),
 .theme-graphite {
   --bg-card: #191d24;
   --text: #f0f2f6;
@@ -17,7 +21,9 @@ body.theme-graphite,
 }
 
 /* --- Белая тема --- */
+:global(body.theme-white),
 body.theme-white,
+:global(.theme-white),
 .theme-white {
   --bg-card: #ffffff;
   --text: #111111;
@@ -26,7 +32,7 @@ body.theme-white,
   --accent: #1a4b9a;
 }
 
-/* --- Карточка --- */
+/* === Карточка === */
 .card {
   display: flex;
   flex-direction: column;
@@ -34,7 +40,12 @@ body.theme-white,
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.3s ease, color 0.3s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease,
+    background 0.3s ease,
+    color 0.3s ease;
 }
 
 .card:hover {
@@ -43,7 +54,7 @@ body.theme-white,
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
 }
 
-/* --- Обёртка изображения --- */
+/* === Обёртка изображения === */
 .mediaWrap {
   position: relative; /* для позиционирования бэйджа источника */
   display: block;
@@ -63,7 +74,19 @@ body.theme-white,
   background-color: #0b0d11;
 }
 
-/* --- Тело карточки --- */
+/* затемнение нижней части изображения для читаемости текста */
+.mediaWrap::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+  pointer-events: none;
+}
+
+/* === Тело карточки === */
 .body {
   padding: 12px 14px 14px;
   display: flex;
@@ -71,7 +94,7 @@ body.theme-white,
   gap: 8px;
 }
 
-/* --- Заголовок --- */
+/* === Заголовок === */
 .title {
   font-size: 16px;
   line-height: 1.25;
@@ -89,7 +112,7 @@ body.theme-white,
   color: var(--accent);
 }
 
-/* --- Источник --- */
+/* === Источник === */
 .sourceLine {
   display: inline-flex;
   align-items: center;
@@ -115,7 +138,7 @@ body.theme-white,
   text-overflow: ellipsis;
 }
 
-/* --- Метаданные (категория, дата) --- */
+/* === Метаданные (категория, дата) === */
 .meta {
   display: flex;
   align-items: center;
@@ -139,11 +162,9 @@ body.theme-white,
   color: var(--accent);
 }
 
-.date {
-  opacity: 0.9;
-}
+.date { opacity: 0.9; }
 
-/* ===================== ДОБАВЛЕНО ДЛЯ ПРОИЗВОДИТЕЛЬНОСТИ ===================== */
+/* ===================== ПРОИЗВОДИТЕЛЬНОСТЬ ===================== */
 @supports (content-visibility: auto) {
   .card {
     content-visibility: auto;
@@ -151,14 +172,12 @@ body.theme-white,
   }
 }
 
-/* ===================== ПРЕДПОЧТЕНИЯ REDUCED MOTION ===================== */
+/* ===================== REDUCED MOTION ===================== */
 @media (prefers-reduced-motion: reduce) {
   .card {
     transition: border-color 0.12s ease, box-shadow 0.12s ease;
   }
-  .card:hover {
-    transform: none;
-  }
+  .card:hover { transform: none; }
 }
 
 /* ===================== ДОСТУПНОСТЬ ===================== */
@@ -174,7 +193,9 @@ body.theme-white,
 }
 
 /* ===================== ХОВЕР-СТАНЫ ДЛЯ СВЕТЛЫХ ТЕМ ===================== */
+:global(body.theme-white) .card:hover,
 body.theme-white .card:hover,
+:global(.theme-white) .card:hover,
 .theme-white .card:hover {
   border-color: rgba(0, 0, 0, 0.2);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
@@ -190,26 +211,14 @@ body.theme-white .card:hover,
 .cat {
   transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
-/* --- Эффект появления и мягкий градиент под текстом --- */
+
+/* Эффект появления */
 .card {
   opacity: 0;
   transform: translateY(10px);
   transition: opacity 0.5s ease, transform 0.5s ease;
 }
-
 .card.visible {
   opacity: 1;
   transform: translateY(0);
-}
-
-/* затемнение нижней части изображения для читаемости текста */
-.mediaWrap::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 45%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
-  pointer-events: none;
 }
