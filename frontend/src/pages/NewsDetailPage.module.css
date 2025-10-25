@@ -296,6 +296,7 @@
 
 :root[data-theme="dark"] .metaPill,
 body.theme-dark .metaPill,
+body.theme-graphite .metaPill,
 :root.dark .metaPill,
 body.dark .metaPill,
 html.dark .metaPill,
@@ -311,6 +312,7 @@ html.dark .metaPill,
 
 :root[data-theme="dark"] .metaSourceLabel,
 body.theme-dark .metaSourceLabel,
+body.theme-graphite .metaSourceLabel,
 :root.dark .metaSourceLabel,
 body.dark .metaSourceLabel,
 html.dark .metaSourceLabel,

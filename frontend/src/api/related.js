@@ -7,7 +7,7 @@
 //
 // Ничего не ломает из вашего существующего Api.js. Этот модуль — добавка.
 
-import axios from "axios";
+import axios from "axios/dist/browser/axios.cjs";
 
 const API_BASE = "http://localhost:8000/api";
 

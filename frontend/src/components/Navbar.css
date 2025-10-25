@@ -124,6 +124,65 @@
   filter: drop-shadow(0 0 6px #00b4ff);
 }
 
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.3s, background 0.3s, transform 0.2s;
+}
+
+.theme-toggle.white {
+  border-color: rgba(32, 36, 44, 0.25);
+  background: rgba(32, 36, 44, 0.08);
+  color: #20242c;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  transform: translateY(-1px);
+  border-color: #00b4ff;
+  background: rgba(0, 180, 255, 0.15);
+  outline: none;
+}
+
+.theme-toggle:active {
+  transform: translateY(0);
+}
+
+.theme-toggle .theme-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 16px;
+  color: inherit;
+  opacity: 0.55;
+  transition: background 0.3s, color 0.3s, opacity 0.3s, box-shadow 0.3s;
+}
+
+.theme-toggle .theme-icon.active {
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(0, 180, 255, 0.3);
+}
+
+.theme-toggle.graphite .theme-icon.active {
+  background: #f6f7fb;
+  color: #111827;
+}
+
+.theme-toggle.white .theme-icon.active {
+  background: #20242c;
+  color: #f6f7fb;
+}
+
 .suggest-link {
   color: white;
   font-size: 15px;
@@ -310,14 +369,12 @@
   cursor: pointer;
 }
 
-body.theme-yellow .search-popover,
 body.theme-white .search-popover {
   background: #fff;
   color: #000;
   border: 1px solid #ccc;
 }
 
-body.theme-yellow .close-search,
 body.theme-white .close-search {
   color: #000;
 }
@@ -341,25 +398,17 @@ html, body {
   transition: background-color 0.4s ease, color 0.4s ease, filter 0.4s ease;
 }
 
-body.theme-default {
-  background: #0b0c0f;
-  color: #ffffff;
+body.theme-graphite {
+  background: #20242c;
+  color: #f6f7fb;
   font-size: 15px;
-}
-
-body.theme-yellow {
-  background: #fff8d1;
-  color: #000;
-  font-size: 18px;
-  font-weight: 600;
-  filter: brightness(110%) contrast(120%);
 }
 
 body.theme-white {
   background: #ffffff;
   color: #000;
   font-size: 17px;
-  filter: brightness(105%) contrast(115%);
+  filter: brightness(105%) contrast(110%);
 }
 
 /* Путь: frontend/src/components/Navbar.css
