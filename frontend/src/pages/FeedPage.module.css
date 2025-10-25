@@ -6,24 +6,51 @@
    ✅ Градиент и тень оптимизированы
 */
 
-:root {
-  --bg: #0b0c0f;
-  --fg: #ffffff;
-  --accent: rgb(249, 200, 92);
+/* Глобальные переменные страницы ленты */
+:global(:root),
+:global(body.theme-graphite),
+:global(.theme-graphite) {
+  --feed-bg: var(--app-bg, #0b0c0f);
+  --feed-fg: var(--app-text, #ffffff);
+  --feed-muted: rgba(246, 247, 251, 0.7);
+  --feed-accent: var(--brand-accent, rgb(249, 200, 92));
+  --feed-border: var(--border, rgba(255, 255, 255, 0.12));
+  --feed-card-bg: #000000;
+  --feed-card-text: #ffffff;
+  --feed-card-muted: rgba(255, 255, 255, 0.82);
+  --feed-card-link: var(--feed-accent);
+  --feed-card-overlay-start: rgba(0, 0, 0, 0.95);
+  --feed-card-overlay-mid: rgba(0, 0, 0, 0.6);
+  --feed-card-overlay-end: rgba(0, 0, 0, 0.2);
+  --feed-card-source-bg: rgba(0, 0, 0, 0.6);
+  --feed-card-shadow: 0 2px 4px rgba(0, 0, 0, 0.75);
+  --feed-card-hover-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
-/* Белая тема */
-:global(body.theme-white) .feed-page,
-:global(.theme-white) .feed-page {
-  --bg: #fdfdfd;
-  --fg: #111;
-  --accent: #1a4b9a;
+:global(body.theme-white),
+:global(.theme-white) {
+  --feed-bg: var(--app-bg, #ffffff);
+  --feed-fg: var(--app-text, #111111);
+  --feed-muted: rgba(17, 17, 17, 0.65);
+  --feed-accent: #1a4b9a;
+  --feed-border: rgba(0, 0, 0, 0.12);
+  --feed-card-bg: #ffffff;
+  --feed-card-text: #111111;
+  --feed-card-muted: rgba(17, 17, 17, 0.75);
+  --feed-card-link: #1a4b9a;
+  --feed-card-overlay-start: rgba(255, 255, 255, 0.95);
+  --feed-card-overlay-mid: rgba(255, 255, 255, 0.7);
+  --feed-card-overlay-end: rgba(255, 255, 255, 0.25);
+  --feed-card-source-bg: rgba(255, 255, 255, 0.85);
+  --feed-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --feed-card-hover-shadow: 0 10px 26px rgba(15, 17, 21, 0.18);
 }
 
 .feed-page {
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--feed-bg);
+  color: var(--feed-fg);
   padding: 1rem;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 /* Сетка карточек */
@@ -38,13 +65,14 @@
   position: relative;
   border-radius: 16px;
   overflow: hidden;
-  background: #000;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: var(--feed-card-bg, #000);
+  box-shadow: var(--feed-card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
 }
 
 .news-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--feed-card-hover-shadow);
 }
 
 /* Фото */
@@ -69,10 +97,9 @@
   height: 75%;
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.95) 0%,
-    rgba(0, 0, 0, 0.7) 40%,
-    rgba(0, 0, 0, 0.3) 70%,
-    transparent 100%
+    var(--feed-card-overlay-start) 0%,
+    var(--feed-card-overlay-mid) 45%,
+    var(--feed-card-overlay-end) 100%
   );
 }
 
@@ -83,7 +110,7 @@
   left: 0;
   right: 0;
   padding: 1.1rem;
-  color: var(--fg);
+  color: var(--feed-card-text);
   z-index: 2;
 }
 
@@ -93,19 +120,15 @@
   font-size: 1.1rem;
   line-height: 1.35;
   margin-bottom: 0.4rem;
-  color: #fff;
-  text-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.9),
-    0 0 4px rgba(0, 0, 0, 0.6),
-    0 0 1px rgba(0, 0, 0, 0.8);
+  color: var(--feed-card-text);
+  text-shadow: var(--feed-card-shadow);
 }
 
 /* "Читать далее" */
 .news-link {
   font-weight: 600;
-  color: var(--accent);
+  color: var(--feed-card-link);
   text-decoration: none;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .news-link:hover {
@@ -117,12 +140,52 @@
   position: absolute;
   top: 0;
   left: 0;
-  background: rgba(0, 0, 0, 0.6);
-  color: var(--accent);
+  background: var(--feed-card-source-bg);
+  color: var(--feed-card-link);
   font-size: 0.8rem;
   font-weight: 500;
   padding: 0.4rem 0.6rem;
   border-bottom-right-radius: 8px;
   z-index: 3;
   backdrop-filter: blur(2px);
+}
+
+/* Список текстовых новостей */
+.text-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.text-list-item {
+  border-bottom: 1px solid var(--feed-border);
+  padding-bottom: 8px;
+  color: var(--feed-fg);
+  transition: border-color 0.3s ease, color 0.3s ease;
+}
+
+.text-list-link {
+  display: block;
+  color: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.text-list-link:hover {
+  color: var(--feed-accent);
+  text-decoration: underline;
+}
+
+.text-list-source {
+  font-size: 0.8rem;
+  color: var(--feed-muted);
+  display: inline-flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.text-list-source span:first-child {
+  opacity: 0.7;
 }

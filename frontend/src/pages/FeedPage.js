@@ -234,20 +234,20 @@ export default function FeedPage() {
 
         <div>
           {/* ❌ Было: <h2 className="text-lg font-bold mb-3">Текстовые новости</h2> — удалено */}
-          <ul className="space-y-3">
+          <ul className={s["text-list"]}>
             {textNews.map((n, idx) => (
               <li
                 key={`text-${n.id ?? n.slug ?? idx}-${idx}`}
-                className="border-b border-gray-700 pb-2"
+                className={s["text-list-item"]}
               >
                 <Link
                   to={n.seo_url ?? `/news/${n.category?.slug ?? "news"}/${n.slug}/`}
-                  className="block hover:underline text-sm font-medium"
+                  className={s["text-list-link"]}
                 >
                   {/* Используем только первую часть заголовка для списка */}
                   {n.titleParts ? n.titleParts[0] : n.title}
                 </Link>
-                <SourceLabel item={n} className="text-xs text-gray-400" />
+                <SourceLabel item={n} className={s["text-list-source"]} />
               </li>
             ))}
           </ul>
