@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { fetchPage } from "../Api";
+import styles from "./StaticPage.module.css";
 
 export default function StaticPage() {
   const { slug } = useParams();
@@ -19,10 +20,10 @@ export default function StaticPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 text-gray-200">
-      <h1 className="text-2xl font-bold mb-4">{page.title}</h1>
+    <div className={styles.page}>
+      <h1 className={styles.heading}>{page.title}</h1>
       <div
-        className="prose prose-invert"
+        className={`prose ${styles.prose}`}
         dangerouslySetInnerHTML={{ __html: page.content }}
       />
     </div>

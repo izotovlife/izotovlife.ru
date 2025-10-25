@@ -1,0 +1,42 @@
+.page {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+  color: var(--app-text);
+}
+
+.heading {
+  margin: 0 0 16px;
+  font-weight: 700;
+  font-size: 1.75rem;
+  color: inherit;
+}
+
+.prose {
+  color: var(--app-text);
+}
+
+.prose :global(p),
+.prose :global(li),
+.prose :global(ol),
+.prose :global(ul),
+.prose :global(h2),
+.prose :global(h3),
+.prose :global(h4),
+.prose :global(h5),
+.prose :global(h6),
+.prose :global(blockquote),
+.prose :global(strong),
+.prose :global(em),
+.prose :global(a) {
+  color: inherit;
+}
+
+.prose :global(a) {
+  color: var(--brand-accent);
+  text-decoration: none;
+}
+
+.prose :global(a:hover) {
+  text-decoration: underline;
+}

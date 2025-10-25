@@ -115,29 +115,25 @@
   }
 }
 
-/* ---------- СВЕТЛЫЕ ТЕМЫ ---------- */
-body.theme-yellow .dropdown,
-body.theme-white .dropdown {
+/* ---------- Белая тема ---------- */
+:global(body.theme-white) .dropdown {
   background: #fff;
   color: #000;
   border: 1px solid #bbb;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
-body.theme-yellow .item,
-body.theme-white .item {
+:global(body.theme-white) .item {
   color: #000;
   border-color: rgba(0, 0, 0, 0.05);
 }
 
-body.theme-yellow .item:hover,
-body.theme-white .item:hover {
+:global(body.theme-white) .item:hover {
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* 🔸 Подсветка для светлых тем */
-body.theme-yellow .title mark,
-body.theme-white .title mark {
+/* 🔸 Подсветка для белой темы */
+:global(body.theme-white) .title mark {
   background: rgba(255, 236, 135, 0.7);
   color: #8a6d00;
 }
