@@ -8,13 +8,32 @@
 @tailwind utilities;
 
 /* Дальше — твои кастомные переменные и стили */
+/* Базовые переменные оформлены через две темы: графитовую и белую. */
 :root {
-  --brand-bg: #0b132b;          /* графитово-синий фон */
-  --brand-fg: #f5f7ff;          /* светлый текст */
+  /* Значения по умолчанию = графитовая тема */
+  --app-bg: #20242c;            /* графитовый фон */
+  --app-text: #f6f7fb;          /* основной текст */
+  --app-border: #000000;        /* чёрные рамки */
   --brand-accent: #d4af37;      /* золото */
   --brand-accent-2: #ffcf6f;    /* светлее золота для градиента */
   --card-bg: #111827;
-  --border: #1f2937;
+  --border: var(--app-border);
+}
+
+body.theme-graphite {
+  --app-bg: #20242c;
+  --app-text: #f6f7fb;
+  --app-border: #000000;
+  --card-bg: #111827;
+  --border: var(--app-border);
+}
+
+body.theme-white {
+  --app-bg: #ffffff;
+  --app-text: #111111;
+  --app-border: #4a4f59;        /* графитовый оттенок для рамок */
+  --card-bg: #ffffff;
+  --border: var(--app-border);
 }
 
 * { box-sizing: border-box }
@@ -22,8 +41,8 @@ html, body, #root { height: 100% }
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans','Helvetica Neue', Arial;
-  background: var(--brand-bg);
-  color: var(--brand-fg);
+  background: var(--app-bg);
+  color: var(--app-text);
 }
 
 a { color: var(--brand-accent); text-decoration: none; }

@@ -9,7 +9,7 @@
    - ✅ ДОПОЛНЕНО: fetchNewsFeedText()/fetchNewsFeedImages() с тем же фолбэком (если где-то используются).
 */
 
-import axios from "axios";
+import axios from "axios/dist/browser/axios.cjs";
 
 // ---------------- БАЗОВАЯ НАСТРОЙКА ----------------
 export const API_BASE = "http://localhost:8000/api";

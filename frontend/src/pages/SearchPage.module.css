@@ -13,22 +13,13 @@
   --accent: rgb(249, 200, 92);
 }
 
-/* Светлая тема */
-:global(body.theme-light) .search-page,
-:global(.theme-light) .search-page {
+/* Белая тема */
+:global(body.theme-white) .search-page,
+:global(.theme-white) .search-page {
   --bg: #fdfdfd;
   --fg: #111;
   --muted: #333;
   --accent: #1a4b9a;
-}
-
-/* Жёлтая тема */
-:global(body.theme-yellow) .search-page,
-:global(.theme-yellow) .search-page {
-  --bg: #fff9e6;
-  --fg: #111;
-  --muted: #3a372e;
-  --accent: #d68b00;
 }
 
 /* Контейнер */
@@ -135,9 +126,9 @@
   text-transform: lowercase;
 }
 
-/* Источник в светлых темах */
-:global(body.theme-light) .card-source,
-:global(.theme-light) .card-source {
+/* Источник в белой теме */
+:global(body.theme-white) .card-source,
+:global(.theme-white) .card-source {
   background: rgba(255, 255, 255, 0.8);
   color: #111;
 }

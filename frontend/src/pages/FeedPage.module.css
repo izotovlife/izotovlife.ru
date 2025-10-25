@@ -12,20 +12,12 @@
   --accent: rgb(249, 200, 92);
 }
 
-/* Светлая тема */
-:global(body.theme-light) .feed-page,
-:global(.theme-light) .feed-page {
+/* Белая тема */
+:global(body.theme-white) .feed-page,
+:global(.theme-white) .feed-page {
   --bg: #fdfdfd;
   --fg: #111;
   --accent: #1a4b9a;
-}
-
-/* Жёлтая тема */
-:global(body.theme-yellow) .feed-page,
-:global(.theme-yellow) .feed-page {
-  --bg: #fff9e6;
-  --fg: #111;
-  --accent: #c38b00;
 }
 
 .feed-page {

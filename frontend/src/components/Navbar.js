@@ -6,7 +6,7 @@
 //   ✅ Навигация по категориям всегда на короткий путь `/<slug>/`
 //   ✅ Остальной функционал (поиск, темы, меню) сохранён
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { whoami, setToken, goToAdmin, fetchCategories } from "../Api";
 import {
@@ -14,7 +14,8 @@ import {
   FaBars,
   FaTimes,
   FaChevronDown,
-  FaEye,
+  FaSun,
+  FaMoon,
 } from "react-icons/fa";
 import { ReactComponent as Logo } from "../assets/izotovlife_logo.svg";
 import SuggestNewsModal from "./SuggestNewsModal";
@@ -35,7 +36,9 @@ export default function Navbar() {
   const [rates, setRates] = useState({});
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [theme, setTheme] = useState(localStorage.getItem("theme") || "default");
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("theme") || "graphite"
+  );
   const [categories, setCategories] = useState([]);
   const navigate = useNavigate();
   const popoverRef = useRef(null);
@@ -124,23 +127,21 @@ export default function Navbar() {
   };
 
   // ---------------- Темы ----------------
-  const applyTheme = (newTheme) => {
-    document.body.classList.remove("theme-default", "theme-yellow", "theme-white");
+  const applyTheme = useCallback((newTheme) => {
+    document.body.classList.remove("theme-graphite", "theme-white");
     document.body.classList.add(`theme-${newTheme}`);
-    setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
-  };
+  }, []);
 
   useEffect(() => {
     applyTheme(theme);
-  }, [theme]);
+  }, [theme, applyTheme]);
 
   useEffect(() => {
     const handleKey = (e) => {
       if (!e.altKey) return;
-      if (e.code === "Digit0") applyTheme("default");
-      if (e.code === "Digit1") applyTheme("yellow");
-      if (e.code === "Digit2") applyTheme("white");
+      if (e.code === "Digit0") setTheme("graphite");
+      if (e.code === "Digit1") setTheme("white");
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -216,19 +217,19 @@ export default function Navbar() {
           </span>
 
           <button
-            className="icon-btn"
-            title="Версия для слабовидящих (Alt+0/1/2)"
+            className={`theme-toggle ${theme}`}
+            title="Смена темы (Alt+0 — графитовая, Alt+1 — белая)"
+            aria-label="Переключить тему"
             onClick={() => {
-              const next =
-                theme === "default"
-                  ? "yellow"
-                  : theme === "yellow"
-                  ? "white"
-                  : "default";
-              applyTheme(next);
+              setTheme((prev) => (prev === "graphite" ? "white" : "graphite"));
             }}
           >
-            <FaEye />
+            <span className={`theme-icon dark ${theme === "graphite" ? "active" : ""}`}>
+              <FaMoon />
+            </span>
+            <span className={`theme-icon light ${theme === "white" ? "active" : ""}`}>
+              <FaSun />
+            </span>
           </button>
 
           <button
