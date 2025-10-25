@@ -1,11 +1,12 @@
 /* Путь: frontend/src/Api.js
    Назначение: Axios-инстанс и функции API (новости, категории, поиск, SEO-маршруты, аутентификация).
    Что внутри (добавлено, ничего важного не удалено):
-   - ✅ Жёсткая нормализация путей категорий: по умолчанию бьём ТОЛЬКО на /news/category/<slug>/ (устаревший /news/<slug>/ отключён флагом).
-   - ✅ buildThumbnailUrl(): НЕ отправляем в ресайзер data:/blob:/about: и всё не-http(s) → 400 исчезают.
-   - ✅ Совместимость: оставлены tryGet(), attachSeoUrl(), resolveNewsApi и прочие старые экспорты.
-   - ✅ fetchCategoryNews(slug, opts): принимает и число (page), и объект { page, limit }, и флаг allowLegacySlugRoute.
-   - ✅ fetchFirstImageForCategory(slug): быстрый фолбэк для обложек категорий из /news/feed/images/?category=<slug>&limit=1.
+   - ✅ Горячий фолбэк TEST_FEED: если /api/news/feed/ упал/пусто — показываем тестовые новости.
+   - ✅ Тумблер заглушки: localStorage.useFakeFeed = "1" ИЛИ ?fake=1 в URL.
+   - ✅ Пагинация фолбэка (page, page_size), совместима с текущим fetchNews().
+   - ✅ buildThumbnailUrl(): НЕ шлём в ресайзер data:/blob:/about: и аудио.
+   - ✅ Жёсткая нормализация путей категорий + tryGet(), attachSeoUrl(), resolveNewsApi и пр. сохранены.
+   - ✅ ДОПОЛНЕНО: fetchNewsFeedText()/fetchNewsFeedImages() с тем же фолбэком (если где-то используются).
 */
 
 import axios from "axios";
@@ -16,6 +17,94 @@ export const API_BASE = "http://localhost:8000/api";
 const api = axios.create({
   baseURL: API_BASE,
 });
+
+// ---------------- ФОЛБЭКИ (ТЕСТОВАЯ ЛЕНТА) ----------------
+const TEST_FEED = [
+  {
+    id: 10001,
+    slug: "test-1-vilfand-teplie-vyhodnye",
+    title: "Вильфанд: ближайшие выходные в Москве будут тёплыми",
+    summary: "Синоптик порадовал хорошими новостями: бабье лето затянулось.",
+    source: { name: "tass.ru", slug: "tass" },
+    category: { name: "Общество", slug: "society" },
+    url: "#",
+    image: null,
+    published_at: new Date().toISOString(),
+  },
+  {
+    id: 10002,
+    slug: "test-2-berzon-black-friday",
+    title: "Экономист Берзон: «Не покупайте лишнее в чёрную пятницу»",
+    summary: "Скидки манят, но бюджет благодарит дисциплину.",
+    source: { name: "rt.com", slug: "rt" },
+    category: { name: "Экономика", slug: "economy" },
+    url: "#",
+    image: null,
+    published_at: new Date().toISOString(),
+  },
+  {
+    id: 10003,
+    slug: "test-3-astor-mirage-ukraine",
+    title: "Макрон: Франция поставит Украине ракеты Aster и истребители Mirage",
+    summary: "Политические заявления недели — в одной новости.",
+    source: { name: "rt.com", slug: "rt" },
+    category: { name: "Политика", slug: "politics" },
+    url: "#",
+    image: null,
+    published_at: new Date().toISOString(),
+  },
+  {
+    id: 10004,
+    slug: "test-4-parkovka-krysha",
+    title: "На вокзале Петербурга крыша парковки рухнула на платформу",
+    summary: "Инцидент без пострадавших, ведётся проверка.",
+    source: { name: "rg.ru", slug: "rg" },
+    category: { name: "Происшествия", slug: "incidents" },
+    url: "#",
+    image: null,
+    published_at: new Date().toISOString(),
+  },
+  {
+    id: 10005,
+    slug: "test-5-kpr-modernizacia-teploseti",
+    title: "КНР получит 1 млрд ₽ на модернизацию теплосетей",
+    summary: "Финансирование направят в 2025–2026 годах.",
+    source: { name: "tass.ru", slug: "tass" },
+    category: { name: "Экономика", slug: "economy" },
+    url: "#",
+    image: null,
+    published_at: new Date().toISOString(),
+  },
+  {
+    id: 10006,
+    slug: "test-6-gorky-park",
+    title: "Золотая осень в Москве: кадры из Парка Горького",
+    summary: "Фотопрогулка по городу: пока листья не улетели.",
+    source: { name: "izotovlife", slug: "izotovlife" },
+    category: { name: "Без категории", slug: "uncategorized" },
+    url: "#",
+    image: null,
+    published_at: new Date().toISOString(),
+  },
+];
+
+function shouldUseFakeFeed() {
+  try {
+    const ls = localStorage.getItem("useFakeFeed") === "1";
+    const url = new URL(window.location.href);
+    const qp = url.searchParams.get("fake") === "1";
+    return ls || qp;
+  } catch {
+    return false;
+  }
+}
+
+function paginate(arr, page = 1, pageSize = 20) {
+  const p = Math.max(1, Number(page) || 1);
+  const s = Math.max(1, Number(pageSize) || 20);
+  const from = (p - 1) * s;
+  return arr.slice(from, from + s);
+}
 
 // ---------------- JWT УТИЛИТЫ ----------------
 function parseJwt(token) {
@@ -195,9 +284,14 @@ export function buildThumbnailUrl(
 export const buildThumb = buildThumbnailUrl;
 
 // ---------------- ЛЕНТА ----------------
-export async function fetchNews(page = 1) {
+export async function fetchNews(page = 1, page_size = 20) {
+  // Принудительный тестовый режим
+  if (shouldUseFakeFeed()) {
+    return paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
+  }
+
   try {
-    const r = await api.get("/news/feed/", { params: { page } });
+    const r = await api.get("/news/feed/", { params: { page, page_size } });
     let data = [];
 
     if (Array.isArray(r.data)) data = r.data;
@@ -207,14 +301,61 @@ export async function fetchNews(page = 1) {
     else if (Array.isArray(r.data.items)) data = r.data.items;
     else if (r.data?.results?.results) data = r.data.results.results;
 
-    if (!Array.isArray(data)) {
-      console.warn("⚠️ fetchNews: неожиданный формат ответа:", r.data);
-      data = [];
+    if (!Array.isArray(data) || data.length === 0) {
+      console.warn("⚠️ fetchNews: API пусто/неожиданный формат — включаю TEST_FEED");
+      return paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
     }
     return data.map((n) => attachSeoUrl(n));
   } catch (err) {
-    console.error("Ошибка загрузки новостей:", err);
-    return [];
+    console.warn("Ошибка загрузки новостей, использую TEST_FEED:", err?.message || err);
+    return paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
+  }
+}
+
+// Дополнительно: правый столбец (если используется отдельно где-то в коде)
+export async function fetchNewsFeedText({ page = 1, page_size = 30 } = {}) {
+  if (shouldUseFakeFeed()) {
+    const results = paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
+    return { count: TEST_FEED.length, next: null, previous: null, results };
+  }
+  try {
+    const r = await api.get("/news/feed/text/", { params: { page, page_size } });
+    const data =
+      (Array.isArray(r.data?.results) && r.data.results) ||
+      (Array.isArray(r.data) && r.data) ||
+      (Array.isArray(r.data?.items) && r.data.items) ||
+      [];
+    if (!data.length) {
+      const results = paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
+      return { count: TEST_FEED.length, next: null, previous: null, results };
+    }
+    return { count: data.length, next: null, previous: null, results: data.map(attachSeoUrl) };
+  } catch {
+    const results = paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
+    return { count: TEST_FEED.length, next: null, previous: null, results };
+  }
+}
+
+export async function fetchNewsFeedImages({ page = 1, page_size = 20 } = {}) {
+  if (shouldUseFakeFeed()) {
+    const results = paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
+    return { count: TEST_FEED.length, next: null, previous: null, results };
+  }
+  try {
+    const r = await api.get("/news/feed/images/", { params: { page, page_size } });
+    const data =
+      (Array.isArray(r.data?.results) && r.data.results) ||
+      (Array.isArray(r.data) && r.data) ||
+      (Array.isArray(r.data?.items) && r.data.items) ||
+      [];
+    if (!data.length) {
+      const results = paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
+      return { count: TEST_FEED.length, next: null, previous: null, results };
+    }
+    return { count: data.length, next: null, previous: null, results: data.map(attachSeoUrl) };
+  } catch {
+    const results = paginate(TEST_FEED, page, page_size).map((n) => attachSeoUrl(n));
+    return { count: TEST_FEED.length, next: null, previous: null, results };
   }
 }
 
@@ -281,13 +422,10 @@ export async function fetchFirstImageForCategory(slug) {
 }
 
 /**
- * НОВОЕ: fetchCategoryNews(slug, opts)
+ * fetchCategoryNews(slug, opts)
  * opts может быть:
  *   - числом (page)
  *   - объектом { page=1, limit, allowLegacySlugRoute=false }
- *
- * По умолчанию НЕ используем устаревший путь /news/<slug>/, чтобы не ловить 404.
- * Но логически он "оставлен" и его можно включить флагом allowLegacySlugRoute.
  */
 export async function fetchCategoryNews(slug, opts = 1) {
   if (!slug) return [];
@@ -300,10 +438,19 @@ export async function fetchCategoryNews(slug, opts = 1) {
   const paths = [
     `/news/category/${encoded}/`, // ← правильный маршрут
     `/category/${encoded}/`,
-    ...(allowLegacy ? [`/news/${encoded}/`] : []), // ← УСТАРЕВШЕЕ, по умолчанию выключено
+    ...(allowLegacy ? [`/news/${encoded}/`] : []), // ← устаревший
   ];
 
   const params = limit ? { page, limit } : { page };
+
+  // Если включён общий фейк — фильтруем TEST_FEED по категории
+  if (shouldUseFakeFeed()) {
+    const filtered = TEST_FEED.filter(
+      (i) => (i.category?.slug || "").toLowerCase() === String(slug).toLowerCase()
+    );
+    const arr = filtered.length ? filtered : TEST_FEED;
+    return paginate(arr, page, limit || 20).map((n) => attachSeoUrl(n));
+  }
 
   try {
     const r = await tryGet(paths, { params });
@@ -316,14 +463,22 @@ export async function fetchCategoryNews(slug, opts = 1) {
     else if (r.data && typeof r.data === "object" && Array.isArray(r.data.results?.items))
       data = r.data.results.items;
 
-    if (!Array.isArray(data)) {
-      console.warn("⚠️ fetchCategoryNews: неожиданный формат ответа:", r.data);
-      data = [];
+    if (!Array.isArray(data) || data.length === 0) {
+      console.warn("⚠️ fetchCategoryNews: API пусто — включаю TEST_FEED (фильтр по категории).");
+      const filtered = TEST_FEED.filter(
+        (i) => (i.category?.slug || "").toLowerCase() === String(slug).toLowerCase()
+      );
+      const arr = filtered.length ? filtered : TEST_FEED;
+      return paginate(arr, page, limit || 20).map((n) => attachSeoUrl(n));
     }
     return data.map((n) => attachSeoUrl(n));
   } catch (err) {
-    console.error("Ошибка загрузки новостей категории:", err);
-    return [];
+    console.error("Ошибка загрузки новостей категории, TEST_FEED:", err?.message || err);
+    const filtered = TEST_FEED.filter(
+      (i) => (i.category?.slug || "").toLowerCase() === String(slug).toLowerCase()
+    );
+    const arr = filtered.length ? filtered : TEST_FEED;
+    return paginate(arr, page, limit || 20).map((n) => attachSeoUrl(n));
   }
 }
 
@@ -390,7 +545,6 @@ export async function fetchArticle(arg1, arg2) {
     const resolved = await resolveNews(cands[0] || slug);
     const detail = resolved?.detail_url;
     if (detail) {
-      // detail может прийти абсолютным — axios сам разрулит
       const r = await api.get(detail);
       return attachSeoUrl(r.data, "article");
     }

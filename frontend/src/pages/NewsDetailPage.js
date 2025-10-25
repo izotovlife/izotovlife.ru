@@ -1,13 +1,11 @@
 /* Путь: frontend/src/pages/NewsDetailPage.js
    Назначение: Детальная страница новости (Article или ImportedNews).
 
-   В этой версии:
-   ✅ «Похожие» никогда не содержат текущую открытую новость:
-      - новая функция filterOutCurrent(list, curSlug, curId)
-      - фильтрация применяется при setRelated/setCachedRelated и дополнительно при подготовке к рендеру
-   ✅ Сохранены: мгновенный сброс правой колонки при смене slug, гарды от устаревших ответов,
-      быстрый parallel race + кеш (in-memory + sessionStorage), скелетоны и fade-in анимации,
-      pretty <title>, SmartTitle/ArticleBody/SmartMedia, синхронизация высот.
+   Обновлено:
+   ✅ Дата показывается только если она «настоящая» (есть цифры)
+   ✅ Источник показывается только при наличии имени/домена; никаких «Источник:» без названия
+   ✅ Расширенный набор полей для URL/имени источника (original_url|link|url|source.url|…)
+   ✅ Остальное поведение без изменений: related race+cache, фильтрация текущей, скелетоны, SmartTitle/Body/Media
 */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +20,7 @@ import SmartMedia from "../components/SmartMedia";
 import ArticleBody from "../components/ArticleBody";
 import SmartTitle from "../components/SmartTitle";
 import { buildPrettyTitle } from "../utils/title";
+import { FiExternalLink, FiClock } from "react-icons/fi";
 
 // ================= УТИЛИТЫ API и КАРТИНКИ =================
 const API_BASE = "http://localhost:8000/api";
@@ -63,7 +62,7 @@ function normalizeRelated(items) {
   });
 }
 
-/** Fallback: список новостей категории — сначала новый /api/news/<slug>/, затем старый /api/category/<slug>/ */
+/** Fallback: список новостей категории — новый/старый эндпоинты */
 async function fetchCategoryLatest(catSlug, limit = 8) {
   try {
     const d1 = await getJson(`${API_BASE}/news/${encodeURIComponent(catSlug)}/?limit=${limit}`);
@@ -80,7 +79,7 @@ async function fetchCategoryLatest(catSlug, limit = 8) {
   }
 }
 
-/** Fallback: детальная новость по универсальному роуту /api/news/<slug>/ */
+/** Универсальная загрузка детали по /api/news/<slug>/ */
 async function fetchArticleUniversal(slug) {
   if (!slug) return null;
   try {
@@ -88,38 +87,6 @@ async function fetchArticleUniversal(slug) {
   } catch {
     return null;
   }
-}
-
-/** СТАРАЯ ПОСЛЕДОВАТЕЛЬНАЯ ВЕРСИЯ — оставлена для совместимости (подавлен eslint) */
-// eslint-disable-next-line no-unused-vars
-async function fetchRelatedVariants(slug, categorySlug, limit = 8) {
-  if (!slug) return [];
-  let items = null;
-
-  try {
-    const d = await getJson(`${API_BASE}/news/${encodeURIComponent(slug)}/related/?limit=${limit}`);
-    items = normalizeRelated(d?.items || d || []);
-    if (items.length) return items;
-  } catch {}
-
-  try {
-    const d = await getJson(`${API_BASE}/news/related/${encodeURIComponent(slug)}/?limit=${limit}`);
-    items = normalizeRelated(d?.items || d || []);
-    if (items.length) return items;
-  } catch {}
-
-  try {
-    const legacy = await fetchRelated("article", categorySlug || "news", slug);
-    items = normalizeRelated(legacy || []);
-    if (items.length) return items;
-  } catch {}
-
-  try {
-    items = await fetchCategoryLatest(categorySlug || "news", limit);
-    if (items.length) return items;
-  } catch {}
-
-  return [];
 }
 
 /* ==================== БЫСТРАЯ ПАРАЛЛЕЛЬНАЯ ВЫДАЧА (RACE + TIMEOUTS) ==================== */
@@ -198,7 +165,6 @@ function ssSet(slug, items) {
     sessionStorage.setItem(`related:${slug}`, JSON.stringify({ ts: Date.now(), items }));
   } catch {}
 }
-
 function getCachedRelated(slug) {
   const mem = relatedCache.get(slug);
   if (mem && Date.now() - mem.ts <= RELATED_CACHE_TTL) return mem.items;
@@ -210,6 +176,7 @@ function setCachedRelated(slug, items) {
   ssSet(slug, items);
 }
 
+/* ================= ДАТЫ ================= */
 function formatRuPortalDate(isoString, tz = "Europe/Moscow") {
   if (!isoString) return "";
   try {
@@ -233,14 +200,13 @@ function formatRuPortalDate(isoString, tz = "Europe/Moscow") {
     return String(isoString);
   }
 }
-
 function isLikelyISO(v) {
   if (!v) return false;
   const s = String(v).trim();
   return /^\d{4}-\d{2}-\d{2}T/.test(s) || /^\d{4}-\d{2}-\d{2}\s/.test(s);
 }
 
-// очеловечивание slug
+/* ================= Разное ================= */
 function humanizeSlug(slug) {
   if (!slug) return "";
   const map = {
@@ -260,22 +226,19 @@ function humanizeSlug(slug) {
     .join(" ");
 }
 
-/* ================= ВСПОМОГАТЕЛЬНОЕ: определение slug и фильтрация текущей новости ================= */
 function extractSlug(maybeUrl) {
   if (!maybeUrl) return "";
   try {
-    // поддержка относительных путей и абсолютных URL
     const u = new URL(maybeUrl, BACKEND_ORIGIN);
     const parts = u.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
     return parts[parts.length - 1] || "";
   } catch {
-    // на случай, если пришло не-URL, попробуем как строку пути
     const parts = String(maybeUrl).replace(/\/+$/, "").split("/").filter(Boolean);
     return parts[parts.length - 1] || "";
   }
 }
 
-/** Удаляем из списка элемент, соответствующий текущей открытой новости */
+/** Удаляем текущую новость из «похожих» */
 function filterOutCurrent(list, curSlug, curId) {
   const curSlugLC = (curSlug || "").toLowerCase();
   const curIdStr = curId != null ? String(curId) : null;
@@ -292,15 +255,121 @@ function filterOutCurrent(list, curSlug, curId) {
   });
 }
 
+/* ================= ИСТОЧНИК: helpers ================= */
+
+/** Хост из URL (без www) */
+function extractDomainHost(url) {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+/** Собираем данные источника. Возвращаем { title, url, icon } или null. */
+function pickSourceFromItem(item) {
+  if (!item || typeof item !== "object") return null;
+
+  // Имя
+  const sourceTitle =
+    item.source_title ||
+    item.source_name ||
+    (item.source && (item.source.title || item.source.name)) ||
+    item.site_name ||
+    item.source_domain ||
+    item.domain ||
+    item.host ||
+    null;
+
+  // URL (расширенный набор возможных полей)
+  const sourceUrl =
+    item.original_url ||
+    item.link ||
+    item.url ||
+    item.source_url ||
+    item.source_link ||
+    item.source_href ||
+    (item.source && (item.source.url || item.source.homepage || item.source.link || item.source.href)) ||
+    null;
+
+  // Если нет ни имени, ни ссылки → не рисуем «Источник» вообще
+  if (!sourceTitle && !sourceUrl) return null;
+
+  const domain = sourceUrl ? extractDomainHost(sourceUrl) : "";
+  const title = (sourceTitle || "").toString().trim() || domain;
+  if (!title) return null;
+
+  const logoPriority =
+    item.source_logo ||
+    item.source_logo_url ||
+    (item.source_fk && (item.source_fk.logo || item.source_fk.icon)) ||
+    (item.source && item.source.logo) ||
+    null;
+
+  const favicon = domain
+    ? `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent("https://" + domain)}`
+    : null;
+
+  return { title, url: sourceUrl, icon: logoPriority || favicon || null };
+}
+
+/* ================= MetaInfo: дата/время + источник ================= */
+function MetaInfo({ datePretty, dateIso, item }) {
+  // Дата «настоящая», только если там есть цифры (иначе многие фиды присылают мусорные строки)
+  const hasDate = !!(datePretty && /\d/.test(String(datePretty)));
+  const info = pickSourceFromItem(item);
+
+  return (
+    <div className={s.metaRow}>
+      {hasDate ? (
+        <span className={`${s.metaPill} ${s.metaPillTime}`} title={dateIso || datePretty}>
+          <FiClock className={s.metaIcon} aria-hidden="true" />
+          <time dateTime={dateIso || undefined}>{datePretty}</time>
+        </span>
+      ) : null}
+
+      {info ? (
+        info.url ? (
+          <a
+            className={`${s.metaPill} ${s.metaPillSource} ${s.metaSourceLink}`}
+            href={info.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {info.icon ? (
+              <img className={s.metaFav} src={info.icon} alt="" width={16} height={16} />
+            ) : (
+              <span className={s.sourceDot} aria-hidden="true" />
+            )}
+            <span className={s.metaSourceLabel}>Источник:&nbsp;</span>
+            <span className={s.metaSourceName}>{info.title}</span>
+            <FiExternalLink className={s.metaIcon} aria-hidden="true" />
+          </a>
+        ) : (
+          <span className={`${s.metaPill} ${s.metaPillSource}`} aria-label="Источник">
+            {info.icon ? (
+              <img className={s.metaFav} src={info.icon} alt="" width={16} height={16} />
+            ) : (
+              <span className={s.sourceDot} aria-hidden="true" />
+            )}
+            <span className={s.metaSourceLabel}>Источник:&nbsp;</span>
+            <span className={s.metaSourceName}>{info.title}</span>
+          </span>
+        )
+      ) : null}
+    </div>
+  );
+}
+
 export default function NewsDetailPage() {
   const params = useParams();
   const [item, setItem] = useState(null);
 
   const [latest, setLatest] = useState([]);
-  const [latestLoading, setLatestLoading] = useState(true); // скелетоны слева
-
+  const [latestLoading, setLatestLoading] = useState(true);
   const [related, setRelated] = useState([]);
-  const [relatedLoading, setRelatedLoading] = useState(true); // скелетоны справа
+  const [relatedLoading, setRelatedLoading] = useState(true);
 
   const [error, setError] = useState(null);
   const [catDict, setCatDict] = useState({});
@@ -309,10 +378,9 @@ export default function NewsDetailPage() {
   const mainRef = useRef(null);
   const rightRef = useRef(null);
 
-  /** Актуальный slug, чтобы игнорировать устаревшие ответы */
   const latestSlugRef = useRef(null);
 
-  // ====== ПОДГОТОВКА: сначала убираем текущую новость из «related», потом сортируем ======
+  // ====== Related: исключаем текущую и сортируем ======
   const relatedFiltered = useMemo(() => {
     const curSlug = item?.slug || params?.slug || "";
     const curId = item?.id ?? item?.pk ?? null;
@@ -335,7 +403,7 @@ export default function NewsDetailPage() {
     return withImg.concat(withoutImg);
   }, [preparedRelated]);
 
-  // Категории для хлебных крошек
+  // Категории
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -351,7 +419,7 @@ export default function NewsDetailPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Preconnect/dns-prefetch к бэку
+  // Preconnect/dns-prefetch
   useEffect(() => {
     const preconnect = document.createElement("link");
     preconnect.rel = "preconnect";
@@ -367,7 +435,7 @@ export default function NewsDetailPage() {
     };
   }, []);
 
-  /* ========== РЕСЕТ И РАННИЙ СТАРТ «ПОХОЖИХ» ДЛЯ ТЕКУЩЕГО SLUG (с фильтрацией текущей новости) ========== */
+  /* ====== Ранний старт «Похожих» ====== */
   useEffect(() => {
     let cancelled = false;
     const slug = params?.slug;
@@ -375,10 +443,10 @@ export default function NewsDetailPage() {
     if (!slug) return;
 
     latestSlugRef.current = slug;
-    setRelated([]);           // мгновенный сброс
-    setRelatedLoading(true);  // включаем скелетоны
+    setRelated([]);
+    setRelatedLoading(true);
 
-    // Prefetch related-эндпоинта
+    // Prefetch related
     try {
       const pre = document.createElement("link");
       pre.rel = "prefetch";
@@ -387,7 +455,7 @@ export default function NewsDetailPage() {
       setTimeout(() => { try { document.head.removeChild(pre); } catch {} }, 5000);
     } catch {}
 
-    // 1) кеш
+    // Кеш
     const cachedRaw = getCachedRelated(slug);
     const cached = filterOutCurrent(cachedRaw || [], slug, null);
     if (cached && cached.length) {
@@ -397,7 +465,7 @@ export default function NewsDetailPage() {
       }
     }
 
-    // 2) быстрый запасной по категории
+    // Быстрый запасной по категории
     (async () => {
       try {
         if (!cached || cached.length === 0) {
@@ -411,7 +479,7 @@ export default function NewsDetailPage() {
       } catch {}
     })();
 
-    // 3) основной быстрый сбор (race + timeouts)
+    // Основной быстрый сбор
     (async () => {
       try {
         const listRaw = await fetchRelatedVariantsFast(slug, categoryParam, 8);
@@ -427,7 +495,7 @@ export default function NewsDetailPage() {
     return () => { cancelled = true; };
   }, [params?.slug, params?.category]);
 
-  // Основная загрузка: статья + последние (слева)
+  // Загрузка статьи + левой колонки
   useEffect(() => {
     let cancelled = false;
 
@@ -474,7 +542,7 @@ export default function NewsDetailPage() {
     return () => { document.title = prev; };
   }, [item?.title]);
 
-  // Синхронизация высот колонок
+  // Синхронизация высот
   useEffect(() => {
     if (!mainRef.current || !leftRef.current || !rightRef.current) return;
     const syncHeights = () => {
@@ -508,7 +576,6 @@ export default function NewsDetailPage() {
   if (!item) return null;
 
   const imageRaw = item.image || item.cover_image || item.cover || item.image_url || null;
-  const sourceTitle = item.source_title || item.source || "";
   const externalUrl = item.original_url || item.link || item.url || null;
 
   const contentHtml = DOMPurify.sanitize(item.content || item.summary || "", { USE_PROFILES: { html: true } });
@@ -523,7 +590,10 @@ export default function NewsDetailPage() {
   const dateCandidate =
     (isLikelyISO(item.pub_date_fmt) && item.pub_date_fmt) ||
     item.published_at || item.date || item.created_at || item.updated_at || item.pub_date_fmt || "";
-  const datePretty = formatRuPortalDate(dateCandidate, "Europe/Moscow");
+  const datePrettyRaw = dateCandidate ? formatRuPortalDate(dateCandidate, "Europe/Moscow") : "";
+  // финальная защита от «пустых» строк
+  const datePretty = /\d/.test(String(datePrettyRaw)) ? datePrettyRaw : "";
+  const dateIso = isLikelyISO(dateCandidate) ? new Date(dateCandidate).toISOString() : "";
 
   const categorySlug = item.category?.slug || params?.category || "news";
   const categoryTitle =
@@ -564,10 +634,8 @@ export default function NewsDetailPage() {
           <Link to={`/${categorySlug}/`}>{categoryTitle}</Link>
         </div>
 
-        <div className={s.meta}>
-          {datePretty}
-          {sourceTitle ? " • " + sourceTitle : ""}
-        </div>
+        {/* Дата/время + Источник */}
+        <MetaInfo datePretty={datePretty} dateIso={dateIso} item={item} />
 
         {imageRaw ? (
           <SmartMedia
