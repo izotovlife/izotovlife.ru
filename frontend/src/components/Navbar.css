@@ -5,20 +5,64 @@
    • голубой hover со свечением
    • выпадающее меню "Ещё"
    • поиск выезжает вниз из-под лупы
-   • исправлено: погода и курсы валют не съезжают вниз
+   • поддержка графитовой и белой темы через CSS-переменные
+   Что исправлено:
+   • Поправлены цвета поповера поиска для светлой темы
+   • ДОБАВЛЕНО: выравнивание цветов «Курсы валют» и «Погода» по темам (в светлой — чёрный, в тёмной — светлый)
 */
 
+/* === Токены шапки (темы) === */
+:root,
+body.theme-graphite,
+.theme-graphite {
+  --navbar-bg: #0b0c0f;
+  --navbar-border: #222;
+  --navbar-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  --navbar-text: #f6f7fb;
+  --navbar-muted: rgba(246, 247, 251, 0.75);
+  --navbar-link-hover: #00b4ff;
+  --navbar-toggle-bg: rgba(255, 255, 255, 0.08);
+  --navbar-toggle-border: rgba(255, 255, 255, 0.25);
+  --navbar-secondary-bg: #0d0e12;
+  --navbar-secondary-border: #222;
+  --navbar-surface: #111827;
+  --navbar-surface-border: #2a2f39;
+  --navbar-surface-shadow: 0 28px 48px rgba(0, 0, 0, 0.55);
+  --navbar-overlay: rgba(0, 0, 0, 0.55);
+}
+
+body.theme-white,
+.theme-white {
+  --navbar-bg: #ffffff;
+  --navbar-border: rgba(0, 0, 0, 0.08);
+  --navbar-shadow: 0 12px 32px rgba(15, 17, 21, 0.12);
+  --navbar-text: #0f1115;
+  --navbar-muted: rgba(17, 17, 17, 0.75);
+  --navbar-link-hover: #0068d7;
+  --navbar-toggle-bg: rgba(17, 17, 17, 0.05);
+  --navbar-toggle-border: rgba(17, 17, 17, 0.15);
+  --navbar-secondary-bg: #ffffff;
+  --navbar-secondary-border: rgba(0, 0, 0, 0.08);
+  --navbar-surface: #ffffff;
+  --navbar-surface-border: rgba(0, 0, 0, 0.12);
+  --navbar-surface-shadow: 0 28px 48px rgba(15, 17, 21, 0.12);
+  --navbar-overlay: rgba(0, 0, 0, 0.35);
+}
+
+/* === База шапки === */
 .navbar {
   position: sticky;
   top: 0;
   z-index: 2147483000;
-  background: #0b0c0f;
-  border-bottom: 1px solid #222;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  background: var(--navbar-bg);
+  border-bottom: 1px solid var(--navbar-border);
+  box-shadow: var(--navbar-shadow);
+  color: var(--navbar-text);
   overflow: visible !important;
+  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, color 0.4s ease;
 }
 
-/* ---------- ВЕРХ ---------- */
+/* === Верхняя строка === */
 .navbar-top {
   display: flex;
   align-items: center;
@@ -29,45 +73,44 @@
   max-width: 1400px;
   margin: 0 auto;
   overflow: visible !important;
+  color: inherit;
 }
 
-/* ---------- ЛОГО ---------- */
+/* === Логотип === */
 .navbar-logo {
   display: flex;
   align-items: center;
   text-decoration: none;
-  color: white;
+  color: inherit;
   font-weight: 600;
   font-size: 18px;
+  gap: 8px;
   transition: color 0.3s, filter 0.3s, transform 0.2s;
-    border: none;
-  outline: none;
-  box-shadow: none;
-.navbar-logo img,
-.navbar-logo:focus,
-.navbar-logo:focus-visible {
   border: none;
   outline: none;
   box-shadow: none;
 }
 
-}
+.navbar-logo:focus,
+.navbar-logo:focus-visible { border: none; outline: none; box-shadow: none; }
 
 .logo-svg {
-  height: 40px;
-  width: auto;
-  fill: white;
+  width: 156px;
+  height: auto;
+  display: block;
+  fill: currentColor;
   transition: transform 0.2s, filter 0.3s;
 }
+@media (max-width: 640px) { .logo-svg { width: 132px; } }
 
 .navbar-logo:hover,
 .logo-svg:hover {
-  color: #00b4ff;
+  color: var(--navbar-link-hover);
   transform: scale(1.05);
-  filter: drop-shadow(0 0 6px #00b4ff) drop-shadow(0 0 12px rgba(0,180,255,0.4));
+  filter: drop-shadow(0 0 6px var(--navbar-link-hover)) drop-shadow(0 0 12px rgba(0, 180, 255, 0.35));
 }
 
-/* ---------- ЦЕНТР (курсы + погода) ---------- */
+/* === Центр (курсы + погода) === */
 .navbar-center {
   flex: 1;
   display: flex;
@@ -75,11 +118,12 @@
   justify-content: center;
   gap: 20px;
   white-space: nowrap;
-  color: white;
+  color: var(--navbar-muted);
   font-size: 14px;
   text-align: center;
   overflow: hidden;
   line-height: 1;
+  transition: color 0.3s ease;
 }
 
 .navbar-center .rates,
@@ -91,14 +135,9 @@
   flex-shrink: 1;
   min-width: 0;
 }
+.navbar-center span { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 
-.navbar-center span {
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
-
-/* ---------- СПРАВА ---------- */
+/* === Правый блок === */
 .navbar-right {
   display: flex;
   align-items: center;
@@ -107,409 +146,298 @@
   position: relative;
   overflow: visible !important;
   z-index: 2147483647;
+  color: inherit;
 }
 
 .icon-btn {
   background: none;
   border: none;
-  color: white;
+  color: inherit;
   cursor: pointer;
   font-size: 18px;
   transition: color 0.2s, filter 0.2s, transform 0.2s;
 }
-
 .icon-btn:hover {
-  color: #00b4ff;
+  color: var(--navbar-link-hover);
   transform: scale(1.1);
-  filter: drop-shadow(0 0 6px #00b4ff);
+  filter: drop-shadow(0 0 6px var(--navbar-link-hover));
 }
 
+.suggest-link {
+  color: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  transition: color 0.3s, text-shadow 0.3s;
+}
+.suggest-link:hover { color: var(--navbar-link-hover); text-shadow: 0 0 6px var(--navbar-link-hover); }
+
+/* === Переключатель темы === */
 .theme-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 6px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--navbar-toggle-border);
+  background: var(--navbar-toggle-bg);
   color: inherit;
   cursor: pointer;
-  transition: border-color 0.3s, background 0.3s, transform 0.2s;
+  transition: border-color 0.3s, background 0.3s, transform 0.2s, color 0.3s;
 }
-
-.theme-toggle.white {
-  border-color: rgba(32, 36, 44, 0.25);
-  background: rgba(32, 36, 44, 0.08);
-  color: #20242c;
-}
-
 .theme-toggle:hover,
 .theme-toggle:focus-visible {
   transform: translateY(-1px);
-  border-color: #00b4ff;
-  background: rgba(0, 180, 255, 0.15);
+  border-color: var(--navbar-link-hover);
+  background: color-mix(in srgb, var(--navbar-toggle-bg) 65%, var(--navbar-link-hover) 35%);
   outline: none;
 }
-
-.theme-toggle:active {
-  transform: translateY(0);
-}
-
+.theme-toggle:active { transform: translateY(0); }
 .theme-toggle .theme-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  font-size: 16px;
-  color: inherit;
-  opacity: 0.55;
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  font-size: 16px; color: inherit; opacity: 0.55;
   transition: background 0.3s, color 0.3s, opacity 0.3s, box-shadow 0.3s;
 }
+.theme-toggle .theme-icon.active { opacity: 1; box-shadow: 0 0 6px rgba(0, 180, 255, 0.3); }
+.theme-toggle.graphite .theme-icon.active { background: #f6f7fb; color: #111827; }
+.theme-toggle.white .theme-icon.active { background: #20242c; color: #f6f7fb; }
 
-.theme-toggle .theme-icon.active {
-  opacity: 1;
-  box-shadow: 0 0 6px rgba(0, 180, 255, 0.3);
-}
-
-.theme-toggle.graphite .theme-icon.active {
-  background: #f6f7fb;
-  color: #111827;
-}
-
-.theme-toggle.white .theme-icon.active {
-  background: #20242c;
-  color: #f6f7fb;
-}
-
-.suggest-link {
-  color: white;
-  font-size: 15px;
-  cursor: pointer;
-  transition: color 0.3s, text-shadow 0.3s;
-}
-
-.suggest-link:hover {
-  color: #00b4ff;
-  text-shadow: 0 0 6px #00b4ff;
-}
-
-/* ---------- КАТЕГОРИИ ---------- */
+/* === Категории в шапке === */
 .navbar-categories {
-  background: #0d0e12;
-  border-top: 1px solid #222;
+  background: var(--navbar-secondary-bg);
+  border-top: 1px solid var(--navbar-secondary-border);
   padding: 8px 16px;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
-
 .categories-center {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 20px;
+  display: flex; justify-content: center; flex-wrap: wrap; align-items: center;
+  gap: 20px; color: inherit;
 }
+.cat-link { color: inherit; text-decoration: none; font-size: 15px; transition: color 0.3s, text-shadow 0.3s; }
+.cat-link:hover { color: var(--navbar-link-hover); text-shadow: 0 0 6px var(--navbar-link-hover); }
 
-.cat-link {
-  color: white;
-  text-decoration: none;
-  font-size: 15px;
-  transition: color 0.3s, text-shadow 0.3s;
-}
-
-.cat-link:hover {
-  color: #00b4ff;
-  text-shadow: 0 0 6px #00b4ff;
-}
-
-/* ---------- ДРОПДАУН "Ещё" ---------- */
-.cat-dropdown {
-  position: relative;
-  cursor: pointer;
-}
-
-.dropdown-trigger {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+/* === Дропдаун "Ещё" === */
+.cat-dropdown { position: relative; cursor: pointer; }
+.dropdown-trigger { display: flex; align-items: center; gap: 4px; color: inherit; }
 
 .dropdown-menu {
-  position: absolute;
-  top: 120%;
-  left: 0;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 6px;
-  min-width: 140px;
-  z-index: 2147483645;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  position: absolute; top: 120%; left: 0;
+  background: var(--navbar-surface);
+  border: 1px solid var(--navbar-surface-border);
+  border-radius: 10px; min-width: 280px;
+  z-index: 2147483645; box-shadow: var(--navbar-surface-shadow);
+  overflow: hidden; transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+  padding: 12px;
 }
 
-.dropdown-item {
-  display: block;
-  padding: 6px 10px;
-  color: white;
-  text-decoration: none;
-  transition: background 0.2s, color 0.3s, text-shadow 0.3s;
+.dropdown-grid { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 10px; }
+
+.dropdown-card {
+  position: relative; width: 160px; height: 100px; border-radius: 10px; overflow: hidden; display: block; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--navbar-surface-border) 80%, transparent 20%);
+  background: color-mix(in srgb, var(--navbar-surface) 85%, var(--navbar-bg) 15%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.dropdown-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(15,17,21,.28);
+  border-color: color-mix(in srgb, var(--navbar-link-hover) 45%, var(--navbar-surface-border) 55%); }
+.dropdown-card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.25s ease; }
+.dropdown-card:hover img { transform: scale(1.05); }
+.dropdown-card .overlay {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px; font-size: 13px; color: #fff;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.65) 100%); text-shadow: 0 0 6px rgba(0,0,0,0.65);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.dropdown-item:hover {
-  background: rgba(0, 180, 255, 0.1);
-  color: #00b4ff;
-  text-shadow: 0 0 6px #00b4ff;
-}
-
-/* ---------- МЕНЮ БУРГЕР ---------- */
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 2147483600;
-}
-
+/* === Боковое меню (бургер) === */
+.overlay { position: fixed; inset: 0; background: var(--navbar-overlay); z-index: 2147483600; transition: background .3s; }
 .side-menu {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 260px;
-  height: 100%;
-  background: #111;
-  color: white;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  z-index: 2147483646;
-  animation: slideIn 0.3s ease;
+  position: fixed; top: 0; right: 0; width: 260px; height: 100%;
+  background: var(--navbar-surface); color: inherit; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  z-index: 2147483646; animation: slideIn .3s ease; border-left: 1px solid var(--navbar-surface-border);
+  box-shadow: -16px 0 40px rgba(15,17,21,.28);
 }
-
-@keyframes slideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+body.theme-white .side-menu { box-shadow: -24px 0 48px rgba(15,17,21,.18); }
+@keyframes slideIn { from { transform: translateX(100%);} to { transform: translateX(0);} }
+.side-menu a, .side-menu button {
+  background: none; border: none; color: inherit; text-align: left; cursor: pointer; font-size: 15px; transition: color .3s, text-shadow .3s;
 }
+.side-menu a:hover, .side-menu button:hover { color: var(--navbar-link-hover); text-shadow: 0 0 6px var(--navbar-link-hover); }
+.close-btn { background: none; border: none; color: inherit; align-self: flex-end; font-size: 22px; cursor: pointer; margin-bottom: 10px; transition: color .3s, filter .3s; }
+.close-btn:hover { color: var(--navbar-link-hover); filter: drop-shadow(0 0 6px var(--navbar-link-hover)); }
 
-.side-menu a,
-.side-menu button {
-  background: none;
-  border: none;
-  color: white;
-  text-align: left;
-  cursor: pointer;
-  font-size: 15px;
-  transition: color 0.3s, text-shadow 0.3s;
-}
+/* === Поиск — поповер === */
+.search-anchor { position: relative; display: inline-flex; align-items: center; overflow: visible !important; }
 
-.side-menu a:hover,
-.side-menu button:hover {
-  color: #00b4ff;
-  text-shadow: 0 0 6px #00b4ff;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: white;
-  align-self: flex-end;
-  font-size: 22px;
-  cursor: pointer;
-  margin-bottom: 10px;
-  transition: color 0.3s, filter 0.3s;
-}
-
-.close-btn:hover {
-  color: #00b4ff;
-  filter: drop-shadow(0 0 6px #00b4ff);
-}
-
-/* ---------- ПОИСК — ПОПОВЕР ---------- */
-.search-anchor {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  overflow: visible !important;
-}
-
-/* сам поповер — выезжает вниз из-под лупы */
 .search-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 10px;
-  padding: 12px 16px 10px 40px;
-  width: 460px;
-  max-width: 85vw;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.55);
-  z-index: 2147483646;
-  opacity: 0;
-  transform: translateY(-10px);
-  transition: all 0.25s ease;
-  pointer-events: none;
+  position: absolute; top: calc(100% + 8px); left: 0;
+  background: var(--navbar-surface); color: inherit;
+  border: 1px solid var(--navbar-surface-border); border-radius: 10px;
+  width: 520px; max-width: 90vw; box-shadow: var(--navbar-surface-shadow);
+  z-index: 2147483646; opacity: 0; transform: translateY(-10px);
+  transition: all .25s ease; pointer-events: none; padding: 12px 12px 12px 44px;
 }
+.search-popover.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
-.search-popover.open {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
+/* Кнопка закрытия */
+.close-search { position: absolute; top: 8px; left: 10px; border: none; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
 
-.close-search {
-  position: absolute;
-  top: 8px;
-  left: 10px;
-  border: none;
+/* В белой теме поповер и содержимое — белый фон/чёрный текст */
+body.theme-white .search-popover { background: #fff; color: #000; }
+body.theme-graphite .search-popover { background: #0b0c0f; color: #fff; }
+
+/* Поле ввода и кнопка отправки внутри поповера */
+.search-popover .search-input {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--navbar-surface-border);
   background: transparent;
-  color: var(--fg, #fff);
-  font-size: 18px;
-  cursor: pointer;
+  color: inherit;
+  padding: 0 44px 0 10px;
+  outline: none;
+}
+body.theme-white .search-popover .search-input { background: #fff; color: #111; border-color: #cbd5e1; }
+body.theme-graphite .search-popover .search-input { background: #0f1115; color: #f6f7fb; border-color: #2b2f36; }
+
+.search-popover .search-submit {
+  position: absolute; top: 12px; right: 12px;
+  height: 40px; min-width: 44px; padding: 0 12px;
+  border-radius: 8px; border: 1px solid var(--navbar-surface-border);
+  background: color-mix(in srgb, var(--navbar-link-hover) 12%, transparent 88%);
+  color: inherit; cursor: pointer;
+}
+.search-popover .search-submit:hover {
+  border-color: var(--navbar-link-hover);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--navbar-link-hover) 30%, transparent 70%);
 }
 
-body.theme-white .search-popover {
-  background: #fff;
-  color: #000;
-  border: 1px solid #ccc;
+/* Список подсказок — унаследованные цвета темы */
+.search-popover .suggest-list { margin-top: 10px; max-height: 60vh; overflow: auto; }
+.search-popover .suggest-item {
+  padding: 10px 8px; border-radius: 8px; border: 1px solid transparent; color: inherit;
+}
+.search-popover .suggest-item:hover {
+  background: color-mix(in srgb, var(--navbar-link-hover) 10%, transparent 90%);
+  border-color: color-mix(in srgb, var(--navbar-link-hover) 35%, transparent 65%);
 }
 
-body.theme-white .close-search {
-  color: #000;
-}
-
-/* ---------- АДАПТИВНОСТЬ ---------- */
+/* === Адаптив === */
 @media (max-width: 900px) {
   .navbar-top { flex-wrap: wrap; }
   .categories-center { gap: 12px; font-size: 14px; }
   .navbar-center { font-size: 13px; gap: 10px; }
-  .search-popover { width: 90vw; left: 50%; transform: translate(-50%, -10px); }
+  .search-popover { width: 92vw; left: 50%; transform: translate(-50%, -10px); }
   .search-popover.open { transform: translate(-50%, 0); }
 }
 
-/* ---------- УМНОЕ СОКРАЩЕНИЕ ПОГОДЫ ---------- */
-@media (max-width: 1100px) { .navbar-center .weather span:nth-child(3) { display:none; } }
-@media (max-width: 900px)  { .navbar-center .weather span:nth-child(2) { display:none; } }
-@media (max-width: 700px)  { .navbar-center .rates { display:none; } }
+/* Умное сокращение погоды/курсов */
+@media (max-width: 1100px) { .navbar-center .weather span:nth-child(3) { display: none; } }
+@media (max-width: 900px)  { .navbar-center .weather span:nth-child(2) { display: none; } }
+@media (max-width: 700px)  { .navbar-center .rates { display: none; } }
 
-/* ---------- ДОСТУПНЫЕ ТЕМЫ (из твоей версии) ---------- */
-html, body {
-  transition: background-color 0.4s ease, color 0.4s ease, filter 0.4s ease;
+/* === Плавная смена темы для body === */
+html, body { transition: background-color .4s ease, color .4s ease, filter .4s ease; }
+body.theme-graphite { background: #20242c; color: #f6f7fb; font-size: 15px; }
+body.theme-white    { background: #ffffff; color: #000; font-size: 17px; filter: brightness(105%) contrast(110%); }
+
+/* === ДОБАВЛЕНО: выравниваем цвет «Курсы валют» и «Погода» по темам === */
+body.theme-white .navbar-center .rates,
+body.theme-white .navbar-center .rates *,
+body.theme-white .navbar-center .weather,
+body.theme-white .navbar-center .weather *,
+body.theme-white .navbar-top .weather,
+body.theme-white .navbar-top .weather * {
+  color: #111 !important;
+  fill: #111 !important;
+  opacity: .9 !important;
+  text-shadow: none !important;
+  filter: none !important;
 }
 
-body.theme-graphite {
-  background: #20242c;
-  color: #f6f7fb;
-  font-size: 15px;
+body.theme-graphite .navbar-center .rates,
+body.theme-graphite .navbar-center .rates *,
+body.theme-graphite .navbar-center .weather,
+body.theme-graphite .navbar-center .weather * {
+  color: rgba(246, 247, 251, 0.85) !important;
+  fill: rgba(246, 247, 251, 0.85) !important;
+  text-shadow: none !important;
+}
+/* === 7) Контраст "Курсы валют" и "Погода" в шапке (append-only) === */
+/* Светлая тема: чёрный, плотный текст + чёрные иконки */
+body.theme-white .navbar-center .rates,
+body.theme-white .navbar-center .weather,
+body.theme-white .navbar-top .rates,
+body.theme-white .navbar-top .weather {
+  color: #000 !important;
+  font-weight: 600 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+body.theme-white .navbar-center .rates * ,
+body.theme-white .navbar-center .weather * ,
+body.theme-white .navbar-top .rates * ,
+body.theme-white .navbar-top .weather * {
+  color: #000 !important;
+  fill: #000 !important;
+  stroke: #000 !important;
 }
 
-body.theme-white {
-  background: #ffffff;
-  color: #000;
-  font-size: 17px;
-  filter: brightness(105%) contrast(110%);
+/* Тёмная тема: светлее и плотнее */
+body.theme-graphite .navbar-center .rates,
+body.theme-graphite .navbar-center .weather,
+body.theme-graphite .navbar-top .rates,
+body.theme-graphite .navbar-top .weather {
+  color: #f7f9ff !important;
+  font-weight: 600 !important;
+  opacity: 0.95 !important;
+  text-shadow: none !important;
+}
+body.theme-graphite .navbar-center .rates * ,
+body.theme-graphite .navbar-center .weather * ,
+body.theme-graphite .navbar-top .rates * ,
+body.theme-graphite .navbar-top .weather * {
+  color: #f7f9ff !important;
+  fill: #f7f9ff !important;
+  stroke: #f7f9ff !important;
+}
+/* === 11) FIX: в "Погоде" и "Курсах" обрезаются буквы (append-only) === */
+/* Причина была в line-height:1 и overflow:hidden у контейнера. */
+
+.navbar-center {
+  line-height: 1.25;            /* безопасная высота строки для кириллицы */
+  overflow-x: hidden;            /* по-прежнему режем только по ширине */
+  overflow-y: visible;           /* вертикально не режем, чтобы глифы не срезались */
+  padding-block: 2px;            /* тонкий запас сверху/снизу */
 }
 
-/* Путь: frontend/src/components/Navbar.css
-   Назначение: стили адаптивной фиксированной шапки IzotovLife
-   Дополнение:
-   ✅ Стили для сетки категорий в выпадающем меню (.dropdown-grid / .dropdown-card / .overlay)
-   (Остальной файл оставлен без изменений — вставьте целиком, он совместим с вашей текущей версией)
-*/
-
-/* ...ваш текущий файл до блока .dropdown-menu — БЕЗ ИЗМЕНЕНИЙ... */
-
-/* ---------- ДРОПДАУН "Ещё" ---------- */
-.cat-dropdown {
-  position: relative;
-  cursor: pointer;
-}
-
-.dropdown-trigger {
-  display: flex;
+/* Те же параметры внутри подблоков */
+.navbar-center .weather,
+.navbar-center .rates {
+  line-height: 1.25;
   align-items: center;
-  gap: 4px;
 }
 
-.dropdown-menu {
-  position: absolute;
-  top: 120%;
-  left: 0;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 10px; /* было 6px — чуть скруглим под карточки */
-  min-width: 280px;
-  z-index: 2147483645;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  padding: 10px; /* чтобы сетка не липла к краю */
+/* Каждый спан — инлайн-флекс, чтобы эмодзи/иконки не вылезали из строки */
+.navbar-center .weather span,
+.navbar-center .rates span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.25;
 }
 
-/* ✅ Сетка карточек категорий */
-.dropdown-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 10px;
+/* SVG/картинки/эмодзи выравниваем по середине строки */
+.navbar-center .weather svg,
+.navbar-center .rates svg,
+.navbar-center .weather img,
+.navbar-center .rates img {
+  vertical-align: middle;
 }
 
-.dropdown-card {
-  position: relative;
-  width: 160px;
-  height: 100px;
-  border-radius: 10px;
-  overflow: hidden;
-  display: block;
-  cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: #0a0f1a;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+/* На всякий случай — жирные/маленькие элементы не должны менять высоту строки */
+.navbar-center .weather strong,
+.navbar-center .rates strong,
+.navbar-center .weather small,
+.navbar-center .rates small {
+  line-height: 1.25;
 }
-
-.dropdown-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-  border-color: rgba(0,180,255,0.35);
-}
-
-.dropdown-card img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: transform 0.25s ease;
-}
-
-.dropdown-card:hover img {
-  transform: scale(1.05);
-}
-
-.dropdown-card .overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 6px 8px;
-  font-size: 13px;
-  color: #fff;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.65) 100%);
-  text-shadow: 0 0 6px rgba(0,0,0,0.65);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dropdown-item { /* оставлено для совместимости, если где-то ещё используется */
-  display: block;
-  padding: 6px 10px;
-  color: white;
-  text-decoration: none;
-  transition: background 0.2s, color 0.3s, text-shadow 0.3s;
-}
-
-.dropdown-item:hover {
-  background: rgba(0, 180, 255, 0.1);
-  color: #00b4ff;
-  text-shadow: 0 0 6px #00b4ff;
-}
-
-/* ...остальной файл без изменений... */

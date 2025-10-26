@@ -1,18 +1,19 @@
 # Путь: backend/urls.py
 # Назначение: Корневой роутинг Django-проекта (sitemap.xml, robots.txt, API, JWT, соц.авторизация, медиа-миниатюры).
-#
-# Что сделано в этой версии:
-#   ✅ Сохранены все имеющиеся маршруты (auth, news, security, pages, sitemap/robots)
-#   ✅ Ресайзер миниатюр доступен ровно по одному пути: /api/media/thumbnail/
-#   ✅ ДОБАВЛЕНО: include('news.urls_perf') → быстрый батч-эндпоинт обложек категорий /api/categories/covers/
-#   🧹 Ничего не удалял из твоей версии; добавлена только строка include для news.urls_perf
-#
-# В DEV (DEBUG=True) медиа-файлы раздаются локально через static().
+# Особенности:
+#   • Без дубля "accounts.urls"
+#   • "news.urls_perf" и "image_guard.urls" подключаются, только если реально существуют
+#   • В DEV медиа раздаются через static()
+
+from importlib.util import find_spec
 
 from django.contrib import admin
 from django.urls import path, include
 from django.contrib.sitemaps.views import sitemap
 from django.views.generic import TemplateView
+
+from django.conf import settings
+from django.conf.urls.static import static
 
 from accounts.views import LoginView, MeView
 from news.sitemaps import (
@@ -21,17 +22,12 @@ from news.sitemaps import (
     ArticleSitemap,
     ImportedNewsSitemap,
 )
-from news.views import CategoryListView  # ✅ прямой путь для списка категорий (короткий префикс)
-
-# ✅ Эндпоинты «Похожие новости»
+from news.views import CategoryListView
 from news.api_related import (
     related_news,
     related_news_legacy_simple,
     related_news_legacy_with_cat,
 )
-
-from django.conf import settings
-from django.conf.urls.static import static
 
 # ---- Карта для sitemap.xml ----
 sitemaps = {
@@ -49,13 +45,12 @@ urlpatterns = [
     path("api/auth/login/", LoginView.as_view(), name="api_login"),
     path("api/auth/me/", MeView.as_view(), name="api_me"),
 
-    # --- Auth API (dj-rest-auth, allauth) ---
-    # ВАЖНО: порядок сохранён, чтобы не ломать существующие интеграции/реверсы
-    path("api/auth/", include("accounts.urls")),
+    # --- Auth API (dj-rest-auth, allauth, локальные аккаунты) ---
+    # Подключаем локальные аккаунт-маршруты ОДИН раз, под пространством имён
+    path("api/auth/", include(("accounts.urls", "accounts"), namespace="accounts")),
     path("api/auth/", include("dj_rest_auth.urls")),
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
     path("api/auth/social/", include("allauth.socialaccount.urls")),
-    path("api/auth/", include(("accounts.urls", "accounts"), namespace="accounts")),
 
     # --- Allauth (web-формы) ---
     path("accounts/", include("allauth.urls")),
@@ -70,10 +65,6 @@ urlpatterns = [
     # --- News (основной роутер приложения) ---
     path("api/", include(("news.urls", "news"), namespace="news")),
 
-    # ✅ ДОБАВЛЕНО: производительные вспомогательные эндпоинты (батч-обложки категорий)
-    # Итоговый путь: /api/categories/covers/
-    path("api/", include(("news.urls_perf", "news_perf"), namespace="news_perf")),
-
     # --- Короткий прямой путь для списка категорий ---
     path("api/categories/", CategoryListView.as_view(), name="categories_short"),
 
@@ -82,10 +73,6 @@ urlpatterns = [
 
     # --- Pages ---
     path("api/pages/", include(("pages.urls", "pages"), namespace="pages")),
-
-    # --- Media (ресайзер миниатюр) ---
-    # конечная точка: /api/media/thumbnail/
-    path("api/media/", include(("media.urls", "media"), namespace="media")),
 
     # --- Robots / Sitemap ---
     path(
@@ -99,6 +86,14 @@ urlpatterns = [
         name="django.contrib.sitemaps.views.sitemap",
     ),
 ]
+
+# --- Опционально: производительные эндпоинты News (подключаем, только если модуль есть) ---
+if find_spec("news.urls_perf"):
+    urlpatterns += [path("api/", include(("news.urls_perf", "news_perf"), namespace="news_perf"))]
+
+# --- Опционально: ресайзер/прокси миниатюр (если есть приложение image_guard и его urls) ---
+if find_spec("image_guard.urls"):
+    urlpatterns += [path("api/media/", include(("image_guard.urls", "image_guard"), namespace="image_guard"))]
 
 # ---- Раздача медиа в DEV ----
 if settings.DEBUG:
