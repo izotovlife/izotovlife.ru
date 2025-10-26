@@ -7,6 +7,8 @@
 //   ✅ Фолбэк-обложка: fetchFirstImageForCategory() из /news/feed/images/?category=<slug>&limit=1
 //   ✅ Фильтрация аудио: isAudioUrl() — аудио-URL не считаем обложкой
 //   ✅ Обложки через SmartMedia: изображения идут через ресайзер, аудио — нет
+//   ✅ РЕЖИМ «ТОЛЬКО ТЕКСТ»: если в категории нет карточек с фото, показываем центрированный адаптивный грид текстовых новостей (1–3 колонки)
+//   ✅ НОВОЕ: ЕСЛИ НЕТ НОВОСТЕЙ БЕЗ ИЛЛЮСТРАЦИИ → карточки С ИЛЛЮСТРАЦИЯМИ выводятся в 3 колонки на всю ширину (правую колонку не рендерим)
 //   ⚠️ Остальная логика (батч-обложки, кэш, скелетоны, ленивая лента и «входящие») сохранена
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
@@ -145,7 +147,7 @@ export default function CategoryPage() {
       s === "notext" ||
       s === "n/a" ||
       s === "-" ||
-      s === "—" ||
+      s === "—" ||  // ← исправлено: латинская s, не кириллическая «с»
       s === "–";
     const MIN_LEN = 8;
     const okTitle = !!title && !isStop(title);
@@ -512,6 +514,14 @@ export default function CategoryPage() {
     );
   }
 
+  // Флаг «только текст» для категории (нет фото-карточек, но есть текстовые)
+  const isTextOnlyCategory =
+    !loading && photoNews.length === 0 && textNews.length > 0;
+
+  // НОВОЕ: флаг «три колонки с фото» — когда НЕТ текстовых новостей
+  const threeColumnsWithPhotos =
+    !isTextOnlyCategory && !loading && photoNews.length > 0 && textNews.length === 0;
+
   // === РЕЖИМ ОДНОЙ КАТЕГОРИИ ===
   return (
     <div className={`${s.page} max-w-7xl mx-auto py-6`}>
@@ -521,8 +531,42 @@ export default function CategoryPage() {
 
       <h1 className={s.title}>{categoryName}</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      {/* ────────────────────────────────────────────────────────────────
+          РЕЖИМ «ТОЛЬКО ТЕКСТ»: центрированный адаптивный грид из 1–3 колонок
+          (ничего не удаляем из старого макета — ниже идёт прежний layout)
+      ──────────────────────────────────────────────────────────────── */}
+      {isTextOnlyCategory && (
+        <section className="max-w-5xl mx-auto">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {textNews.map((n, idx) => (
+              <li
+                key={`textgrid-${n.id ?? n.slug ?? idx}-${idx}`}
+                className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4"
+              >
+                <Link
+                  to={n.seo_url ?? `/${n.category?.slug ?? slug}/${n.slug}/`}
+                  className="block font-semibold leading-snug hover:underline"
+                  style={{ color: "inherit", textDecorationColor: "currentColor" }}
+                >
+                  {n.titleParts ? n.titleParts[0] : n.title}
+                </Link>
+                <div className="mt-2">
+                  <SourceLabel item={n} className="text-xs opacity-80" />
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Сообщение конца ленты (для единообразия) */}
+          {!hasMore && (
+            <p className="text-gray-400 mt-4">Больше новостей нет</p>
+          )}
+        </section>
+      )}
+
+      {/* НОВОЕ: если нет «без иллюстрации», растягиваем фото-сетку на 3 колонки */}
+      {threeColumnsWithPhotos && (
+        <div className={s.fullGrid}>
           <InfiniteScroll
             dataLength={photoNews.length}
             next={loadMore}
@@ -531,7 +575,7 @@ export default function CategoryPage() {
             endMessage={<p className="text-gray-400 mt-4">Больше новостей нет</p>}
             scrollThreshold="1200px"
           >
-            <div ref={gridRef} className={s["news-grid"]}>
+            <div ref={gridRef} className={s["news-grid-3"]}>
               {photoNews.map((item, idx) => (
                 <NewsCard
                   key={`${item.id ?? item.slug ?? idx}-${idx}`}
@@ -542,32 +586,58 @@ export default function CategoryPage() {
             </div>
           </InfiniteScroll>
         </div>
+      )}
 
-        <div>
-          {loading && textNews.length === 0 ? (
-            <p className="text-gray-400">Загрузка...</p>
-          ) : textNews.length === 0 ? (
-            <p className={s.empty}>Новости без иллюстрации не найдены.</p>
-          ) : (
-            <ul className="space-y-3">
-              {textNews.map((n, idx) => (
-                <li
-                  key={`text-${n.id ?? n.slug ?? idx}-${idx}`}
-                  className="border-b border-gray-700 pb-2"
-                >
-                  <Link
-                    to={n.seo_url ?? `/${n.category?.slug ?? slug}/${n.slug}/`}
-                    className="block hover:underline text-sm font-medium"
+      {/* Старый двухколоночный макет — показываем, если есть фото и есть текстовые */}
+      {!isTextOnlyCategory && !threeColumnsWithPhotos && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <InfiniteScroll
+              dataLength={photoNews.length}
+              next={loadMore}
+              hasMore={hasMore}
+              loader={<p className="text-gray-400">Загрузка...</p>}
+              endMessage={<p className="text-gray-400 mt-4">Больше новостей нет</p>}
+              scrollThreshold="1200px"
+            >
+              <div ref={gridRef} className={s["news-grid"]}>
+                {photoNews.map((item, idx) => (
+                  <NewsCard
+                    key={`${item.id ?? item.slug ?? idx}-${idx}`}
+                    item={item}
+                    eager={idx < 6}
+                  />
+                ))}
+              </div>
+            </InfiniteScroll>
+          </div>
+
+          <div>
+            {loading && textNews.length === 0 ? (
+              <p className="text-gray-400">Загрузка...</p>
+            ) : textNews.length === 0 ? (
+              <p className={s.empty}>Новости без иллюстрации не найдены.</p>
+            ) : (
+              <ul className="space-y-3">
+                {textNews.map((n, idx) => (
+                  <li
+                    key={`text-${n.id ?? n.slug ?? idx}-${idx}`}
+                    className="border-b border-gray-700 pb-2"
                   >
-                    {n.titleParts ? n.titleParts[0] : n.title}
-                  </Link>
-                  <SourceLabel item={n} className="text-xs text-gray-400" />
-                </li>
-              ))}
-            </ul>
-          )}
+                    <Link
+                      to={n.seo_url ?? `/${n.category?.slug ?? slug}/${n.slug}/`}
+                      className="block hover:underline text-sm font-medium"
+                    >
+                      {n.titleParts ? n.titleParts[0] : n.title}
+                    </Link>
+                    <SourceLabel item={n} className="text-xs text-gray-400" />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <IncomingNewsTray
         items={incoming}
