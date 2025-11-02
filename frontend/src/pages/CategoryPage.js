@@ -9,6 +9,7 @@
 //   ✅ Обложки через SmartMedia: изображения идут через ресайзер, аудио — нет
 //   ✅ РЕЖИМ «ТОЛЬКО ТЕКСТ»: если в категории нет карточек с фото, показываем центрированный адаптивный грид текстовых новостей (1–3 колонки)
 //   ✅ НОВОЕ: ЕСЛИ НЕТ НОВОСТЕЙ БЕЗ ИЛЛЮСТРАЦИИ → карточки С ИЛЛЮСТРАЦИЯМИ выводятся в 3 колонки на всю ширину (правую колонку не рендерим)
+//   ✅ ДОБАВЛЕНО: нормализация слагов alias→canonical для API (obschestvo→obshchestvo, lenta-novostej→lenta-novostey, proisshestvija→proisshestviya)
 //   ⚠️ Остальная логика (батч-обложки, кэш, скелетоны, ленивая лента и «входящие») сохранена
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
@@ -79,6 +80,13 @@ function withTitleParts(items) {
   }));
 }
 
+/** 🔧 Алиасы фронта → канонический слаг бэка для API */
+const CAT_SLUG_ALIASES = {
+  "obschestvo": "obshchestvo",
+  "lenta-novostej": "lenta-novostey",
+  "proisshestvija": "proisshestviya",
+};
+
 export default function CategoryPage() {
   const { slug } = useParams();
   const location = useLocation();
@@ -86,11 +94,16 @@ export default function CategoryPage() {
   const isListMode =
     !slug || location.pathname === "/categories" || location.pathname.startsWith("/categories/");
 
+  // Канонический слаг — ИМЕННО для вызовов API (чтобы не было 404)
+  const apiSlug = CAT_SLUG_ALIASES[slug] || slug;
+
   // --- индекс категорий
   const [allCategories, setAllCategories] = useState([]);
   const [covers, setCovers] = useState({});
-  const coversRef = useRef(covers);            // ⚠️ снимок covers для эффектов
-  useEffect(() => { coversRef.current = covers; }, [covers]); // синхронизация снимка
+  const coversRef = useRef(covers); // ⚠️ снимок covers для эффектов
+  useEffect(() => {
+    coversRef.current = covers;
+  }, [covers]);
   const [catsLoading, setCatsLoading] = useState(true);
 
   // --- страница одной категории
@@ -147,7 +160,7 @@ export default function CategoryPage() {
       s === "notext" ||
       s === "n/a" ||
       s === "-" ||
-      s === "—" ||  // ← исправлено: латинская s, не кириллическая «с»
+      s === "—" || // ← исправлено: латинская s, не кириллическая «с»
       s === "–";
     const MIN_LEN = 8;
     const okTitle = !!title && !isStop(title);
@@ -161,10 +174,14 @@ export default function CategoryPage() {
     async function loadCategoryName() {
       try {
         const cats = await fetchCategories();
-        const found = Array.isArray(cats) ? cats.find((c) => c.slug === slug) : null;
-        if (mounted) setCategoryName(found?.name || found?.title || slug);
+        const list = Array.isArray(cats) ? cats : [];
+        // Ищем сначала по каноническому, затем по исходному слагу
+        const found =
+          list.find((c) => c.slug === apiSlug) ||
+          list.find((c) => c.slug === slug);
+        if (mounted) setCategoryName(found?.name || found?.title || (slug || "Категории"));
       } catch {
-        if (mounted) setCategoryName(slug);
+        if (mounted) setCategoryName(slug || "Категории");
       }
     }
     if (isListMode) {
@@ -175,7 +192,7 @@ export default function CategoryPage() {
     return () => {
       mounted = false;
     };
-  }, [slug, isListMode]);
+  }, [slug, apiSlug, isListMode]);
 
   // Сброс при смене категории
   useEffect(() => {
@@ -193,14 +210,14 @@ export default function CategoryPage() {
   // Ленивая подгрузка ленты категории
   const loadMore = useCallback(async () => {
     if (isListMode) return;
-    if (!slug) return;
+    if (!apiSlug) return;
     if (loadingRef.current || !hasMoreRef.current) return;
 
     try {
       loadingRef.current = true;
       const page = pageRef.current;
 
-      const data = await fetchCategoryNews(slug, page);
+      const data = await fetchCategoryNews(apiSlug, page);
       const results = Array.isArray(data)
         ? data
         : Array.isArray(data?.results)
@@ -215,10 +232,17 @@ export default function CategoryPage() {
       const withoutPhotoProcessed = withTitleParts(withoutPhoto);
 
       const seen = new Set(
-        photoNews.map((n) => n?.id ?? n?.slug ?? null).concat(textNews.map((n) => n?.id ?? n?.slug ?? null)).filter(Boolean)
+        photoNews
+          .map((n) => n?.id ?? n?.slug ?? null)
+          .concat(textNews.map((n) => n?.id ?? n?.slug ?? null))
+          .filter(Boolean)
       );
-      const uniquePhoto = withPhotoProcessed.filter((n) => !seen.has(n?.id ?? n?.slug ?? null));
-      const uniqueText = withoutPhotoProcessed.filter((n) => !seen.has(n?.id ?? n?.slug ?? null));
+      const uniquePhoto = withPhotoProcessed.filter(
+        (n) => !seen.has(n?.id ?? n?.slug ?? null)
+      );
+      const uniqueText = withoutPhotoProcessed.filter(
+        (n) => !seen.has(n?.id ?? n?.slug ?? null)
+      );
 
       setPhotoNews((prev) => [...prev, ...uniquePhoto]);
       setTextNews((prev) => [...prev, ...uniqueText]);
@@ -239,14 +263,14 @@ export default function CategoryPage() {
       loadingRef.current = false;
       setLoading(false);
     }
-  }, [slug, isListMode, hasSomeText, photoNews, textNews]);
+  }, [apiSlug, isListMode, hasSomeText, photoNews, textNews]);
 
   // Первичная загрузка ленты
   useEffect(() => {
     if (isListMode) return;
-    if (!slug) return;
+    if (!apiSlug) return;
     loadMore();
-  }, [slug, isListMode, loadMore]);
+  }, [apiSlug, isListMode, loadMore]);
 
   // Предзаполнение
   useEffect(() => {
@@ -283,7 +307,7 @@ export default function CategoryPage() {
   const pollIncoming = useCallback(async () => {
     if (isListMode) return;
     try {
-      const data = await fetchCategoryNews(slug, 1);
+      const data = await fetchCategoryNews(apiSlug, 1);
       const results = Array.isArray(data)
         ? data
         : Array.isArray(data?.results)
@@ -308,10 +332,11 @@ export default function CategoryPage() {
       if (collected.length) {
         const collectedProcessed = withTitleParts(collected);
         setIncoming((prev) => [...collectedProcessed, ...prev]);
-        lastTopKeyRef.current = valid[0]?.id ?? valid[0]?.slug ?? lastTopKeyRef.current;
+        lastTopKeyRef.current =
+          valid[0]?.id ?? valid[0]?.slug ?? lastTopKeyRef.current;
       }
     } catch {}
-  }, [slug, isListMode, hasSomeText]);
+  }, [apiSlug, isListMode, hasSomeText]);
 
   useEffect(() => {
     if (isListMode) return;
@@ -350,7 +375,10 @@ export default function CategoryPage() {
           setCovers((prev) => {
             const next = { ...serverMap, ...prev };
             try {
-              sessionStorage.setItem(COVERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), map: next }));
+              sessionStorage.setItem(
+                COVERS_CACHE_KEY,
+                JSON.stringify({ ts: Date.now(), map: next })
+              );
             } catch {}
             return next;
           });
@@ -368,7 +396,10 @@ export default function CategoryPage() {
               setCovers((prev) => {
                 const next = { ...prev, [sl]: img };
                 try {
-                  sessionStorage.setItem(COVERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), map: next }));
+                  sessionStorage.setItem(
+                    COVERS_CACHE_KEY,
+                    JSON.stringify({ ts: Date.now(), map: next })
+                  );
                 } catch {}
                 return next;
               });
@@ -411,14 +442,21 @@ export default function CategoryPage() {
     const worker = async (sl) => {
       try {
         const data = await fetchCategoryNews(sl, 1);
-        const items = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+        const items = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.results)
+          ? data.results
+          : [];
         const best = chooseBestCover(items);
         const img = isImageOk(best) ? best : "";
         if (!cancelled) {
           setCovers((prev) => {
             const next = { ...prev, [sl]: img };
             try {
-              sessionStorage.setItem(COVERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), map: next }));
+              sessionStorage.setItem(
+                COVERS_CACHE_KEY,
+                JSON.stringify({ ts: Date.now(), map: next })
+              );
             } catch {}
             return next;
           });
@@ -428,7 +466,10 @@ export default function CategoryPage() {
           setCovers((prev) => {
             const next = { ...prev, [sl]: "" };
             try {
-              sessionStorage.setItem(COVERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), map: next }));
+              sessionStorage.setItem(
+                COVERS_CACHE_KEY,
+                JSON.stringify({ ts: Date.now(), map: next })
+              );
             } catch {}
             return next;
           });
@@ -438,13 +479,16 @@ export default function CategoryPage() {
 
     const runBatches = async (slugs, parallel = 4) => {
       let i = 0;
-      const runners = Array.from({ length: Math.min(parallel, slugs.length) }, async () => {
-        while (i < slugs.length && !cancelled) {
-          const current = slugs[i++];
-          // eslint-disable-next-line no-await-in-loop
-          await worker(current);
+      const runners = Array.from(
+        { length: Math.min(parallel, slugs.length) },
+        async () => {
+          while (i < slugs.length && !cancelled) {
+            const current = slugs[i++];
+            // eslint-disable-next-line no-await-in-loop
+            await worker(current);
+          }
         }
-      });
+      );
       await Promise.all(runners);
     };
 
@@ -558,9 +602,7 @@ export default function CategoryPage() {
           </ul>
 
           {/* Сообщение конца ленты (для единообразия) */}
-          {!hasMore && (
-            <p className="text-gray-400 mt-4">Больше новостей нет</p>
-          )}
+          {!hasMore && <p className="text-gray-400 mt-4">Больше новостей нет</p>}
         </section>
       )}
 

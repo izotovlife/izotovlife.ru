@@ -828,3 +828,256 @@ body::before, body::after,
   box-shadow: none !important;
   mask-image: none !important;
 }
+
+/* Путь: frontend/src/index.css
+   Назначение: Глобальные темы и стили. ДОБАВЛЕНИЕ:
+   1) Токены для «пилюль» (дата, «Источник» и т.п.)
+   2) Универсальные правила для этих «пилюль», чтобы в тёмной теме фон был графитовый.
+*/
+
+/* === 1) Токены чипов/бейджей (пилюли) ===
+   Светлая тема: остаётся белой.
+   Тёмная (графитовая): делаем графитовый фон + светлый текст. */
+:root,
+body.theme-light {
+  --chip-bg: #ffffff;      /* фон чипа в светлой теме */
+  --chip-fg: #111827;      /* текст в чипе (светлая) */
+  --chip-border: #e5e7eb;  /* рамка (светлая) */
+}
+
+:root[data-theme="graphite"],
+body.theme-graphite {
+  --chip-bg: #2a2f3a;      /* ГРАФИТОВЫЙ фон чипа в тёмной теме */
+  --chip-fg: #f6f7fb;      /* светлый текст на графите */
+  --chip-border: #3a404c;  /* приглушённая графитовая рамка */
+}
+
+/* === 2) Универсальные правила для «пилюль» (дата, Источник, теги) ===
+   Селекторы подобраны так, чтобы не править JSX: берём типичные классы и блоки meta
+   на страницах статей/новостей. */
+.badge,
+.badge-pill,
+.chip,
+.pill,
+.tag,
+[class*="badge"],
+[class*="chip"],
+[class*="pill"],
+/* мета-блоки на странице новости */
+.news-detail .meta a,
+.news-detail .meta span,
+.newsDetail .meta a,
+.newsDetail .meta span,
+.article-page .meta a,
+.article-page .meta span,
+.article .meta a,
+.article .meta span,
+.post .meta a,
+.post .meta span,
+.meta .pill,
+.meta .badge,
+.meta .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  background: var(--chip-bg, #ffffff);
+  color: var(--chip-fg, #111827);
+  border: 1px solid var(--chip-border, #e5e7eb);
+
+  padding: 8px 14px;
+  border-radius: 9999px;
+  line-height: 1;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
+}
+
+/* ссылки внутри чипа наследуют цвет и не «синеют» */
+.badge a,
+.badge-pill a,
+.chip a,
+.pill a,
+.tag a,
+.news-detail .meta a,
+.newsDetail .meta a,
+.article-page .meta a,
+.article .meta a,
+.post .meta a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* лёгкий hover */
+.badge:hover,
+.badge-pill:hover,
+.chip:hover,
+.pill:hover,
+.tag:hover,
+.news-detail .meta a:hover,
+.news-detail .meta span:hover,
+.newsDetail .meta a:hover,
+.newsDetail .meta span:hover,
+.article-page .meta a:hover,
+.article-page .meta span:hover,
+.article .meta a:hover,
+.article .meta span:hover,
+.post .meta a:hover,
+.post .meta span:hover {
+  filter: brightness(1.05);
+  border-color: rgba(0,0,0,.12);
+}
+
+/* иконки внутри чипов */
+.badge svg,
+.badge-pill svg,
+.chip svg,
+.pill svg,
+.tag svg,
+.news-detail .meta svg,
+.newsDetail .meta svg,
+.article-page .meta svg,
+.article .meta svg,
+.post .meta svg {
+  width: 16px;
+  height: 16px;
+  opacity: .9;
+  flex: 0 0 auto;
+}
+
+/* На случай, если где-то задан жёсткий белый фон — форсируем графит в тёмной теме */
+:root[data-theme="graphite"] .badge,
+:root[data-theme="graphite"] .badge-pill,
+:root[data-theme="graphite"] .chip,
+:root[data-theme="graphite"] .pill,
+:root[data-theme="graphite"] .tag,
+:root[data-theme="graphite"] .meta a,
+:root[data-theme="graphite"] .meta span,
+body.theme-graphite .badge,
+body.theme-graphite .badge-pill,
+body.theme-graphite .chip,
+body.theme-graphite .pill,
+body.theme-graphite .tag,
+body.theme-graphite .meta a,
+body.theme-graphite .meta span {
+  background: var(--chip-bg) !important;
+  color: var(--chip-fg) !important;
+  border-color: var(--chip-border) !important;
+}
+
+/* ===================================================================== */
+/* 7.11 ТЁМНАЯ ТЕМА: ИТОГОВЫЙ ПАТЧ — «Дата», «Источник» и пр. ПИЛЮЛИ ГРАФИТОВЫЕ
+   (перебивает блоки 7.7 и 7.8; ничего не удаляем). Держать САМЫМ ПОСЛЕДНИМ. */
+body.theme-graphite .news-detail .meta [class*="pill"][class*="pill"],
+body.theme-graphite .news-detail .meta [class*="chip"][class*="chip"],
+body.theme-graphite .news-detail .meta [class*="badge"][class*="badge"],
+body.theme-graphite .news-detail .meta [class*="date"][class*="date"],
+body.theme-graphite .news-detail .meta [class*="time"][class*="time"],
+body.theme-graphite .news-detail .meta [class*="source"][class*="source"],
+body.theme-graphite .NewsDetailPage .meta [class*="pill"][class*="pill"],
+body.theme-graphite .NewsDetailPage .meta [class*="chip"][class*="chip"],
+body.theme-graphite .NewsDetailPage .meta [class*="badge"][class*="badge"],
+body.theme-graphite .NewsDetailPage .meta [class*="date"][class*="date"],
+body.theme-graphite .NewsDetailPage .meta [class*="time"][class*="time"],
+body.theme-graphite .NewsDetailPage .meta [class*="source"][class*="source"],
+body.theme-graphite [data-role="news-detail"] .meta [class*="pill"][class*="pill"],
+body.theme-graphite [data-role="news-detail"] .meta [class*="chip"][class*="chip"],
+body.theme-graphite [data-role="news-detail"] .meta [class*="badge"][class*="badge"],
+body.theme-graphite [data-role="news-detail"] .meta [class*="date"][class*="date"],
+body.theme-graphite [data-role="news-detail"] .meta [class*="time"][class*="time"],
+body.theme-graphite [data-role="news-detail"] .meta [class*="source"][class*="source"] {
+  background-color: var(--graphite-840) !important; /* ГРАФИТОВЫЙ ФОН */
+  color: #f5f7fa !important;                        /* светлый текст */
+  -webkit-text-fill-color: #f5f7fa !important;
+  border: 1px solid var(--graphite-700) !important; /* графитовый контур */
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02) !important;
+}
+
+/* ссылки внутри этих пилюль */
+body.theme-graphite .news-detail .meta [class*="source"][class*="source"] a,
+body.theme-graphite .NewsDetailPage .meta [class*="source"][class*="source"] a,
+body.theme-graphite [data-role="news-detail"] .meta [class*="source"][class*="source"] a {
+  color: #f5f7fa !important;
+  text-decoration: none !important;
+  font-weight: 600;
+}
+body.theme-graphite .news-detail .meta [class*="source"][class*="source"] a:hover,
+body.theme-graphite .NewsDetailPage .meta [class*="source"][class*="source"] a:hover,
+body.theme-graphite [data-role="news-detail"] .meta [class*="source"][class*="source"] a:hover {
+  color: #4da3ff !important;
+  text-decoration: underline !important;
+}
+
+/* иконки внутри — тоже светлые */
+body.theme-graphite .news-detail .meta [class*="pill"][class*="pill"] svg,
+body.theme-graphite .news-detail .meta [class*="chip"][class*="chip"] svg,
+body.theme-graphite .news-detail .meta [class*="badge"][class*="badge"] svg,
+body.theme-graphite .news-detail .meta [class*="date"][class*="date"] svg,
+body.theme-graphite .news-detail .meta [class*="time"][class*="time"] svg,
+body.theme-graphite .news-detail .meta [class*="source"][class*="source"] svg,
+body.theme-graphite .NewsDetailPage .meta [class*="pill"][class*="pill"] svg,
+body.theme-graphite .NewsDetailPage .meta [class*="chip"][class*="chip"] svg,
+body.theme-graphite .NewsDetailPage .meta [class*="badge"][class*="badge"] svg,
+body.theme-graphite .NewsDetailPage .meta [class*="date"][class*="date"] svg,
+body.theme-graphite .NewsDetailPage .meta [class*="time"][class*="time"] svg,
+body.theme-graphite .NewsDetailPage .meta [class*="source"][class*="source"] svg,
+body.theme-graphite [data-role="news-detail"] .meta [class*="pill"][class*="pill"] svg,
+body.theme-graphite [data-role="news-detail"] .meta [class*="chip"][class*="chip"] svg,
+body.theme-graphite [data-role="news-detail"] .meta [class*="badge"][class*="badge"] svg,
+body.theme-graphite [data-role="news-detail"] .meta [class*="date"][class*="date"] svg,
+body.theme-graphite [data-role="news-detail"] .meta [class*="time"][class*="time"] svg,
+body.theme-graphite [data-role="news-detail"] .meta [class*="source"][class*="source"] svg {
+  color: #f5f7fa !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+/* ===================================================================== */
+/* 7.12 ТЁМНАЯ ТЕМА: ХАРД-ОВЕРРАЙД ПИЛЮЛЕЙ ДАТЫ/ИСТОЧНИКА В ДЕТАЛЕ НОВОСТИ
+   Цель: даже если классы хешированы (CSS-modules) или есть инлайн-стили,
+   сделать фон графитовым и текст светлым.
+   Держать САМЫМ ПОСЛЕДНИМ в файле. */
+
+body.theme-graphite :where(
+  /* типичные контейнеры деталки */
+  .news-detail, [class*="NewsDetailPage"], [data-role="news-detail"],
+  article, .article, .post
+) :where(
+  /* сами пилюли и элементы мета */
+  [class*="pill"], [class*="chip"], [class*="badge"],
+  [class*="meta"] a, [class*="meta"] span,
+  [class*="date"], [class*="time"], [class*="source"]
+) {
+  background-color: #252c36 !important;     /* графитовый фон */
+  color: #f5f7fa !important;                /* светлый текст */
+  -webkit-text-fill-color: #f5f7fa !important;
+  border: 1px solid #3a4352 !important;     /* графитовый контур */
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02) !important;
+  border-radius: 9999px !important;         /* «пилюля» на всякий случай */
+}
+
+/* ссылки внутри «Источник» — светлые; hover чуть голубее */
+body.theme-graphite :where(
+  .news-detail, [class*="NewsDetailPage"], [data-role="news-detail"],
+  article, .article, .post
+) :where([class*="source"]) a {
+  color: #f5f7fa !important;
+  text-decoration: none !important;
+  font-weight: 600;
+}
+body.theme-graphite :where(
+  .news-detail, [class*="NewsDetailPage"], [data-role="news-detail"],
+  article, .article, .post
+) :where([class*="source"]) a:hover {
+  color: #4da3ff !important;
+  text-decoration: underline !important;
+}
+
+/* иконки в пилюлях — тоже светлые */
+body.theme-graphite :where(
+  .news-detail, [class*="NewsDetailPage"], [data-role="news-detail"],
+  article, .article, .post
+) :where([class*="pill"], [class*="chip"], [class*="badge"], [class*="date"], [class*="time"], [class*="source"]) svg {
+  color: #f5f7fa !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}

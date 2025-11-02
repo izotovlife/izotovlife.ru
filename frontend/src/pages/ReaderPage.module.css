@@ -1,0 +1,81 @@
+/* Путь: frontend/src/pages/ReaderPage.module.css
+   Назначение: Стили личного кабинета (reader). Дружат со светлой и графитовой темами.
+*/
+
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.breadcrumbs {
+  color: var(--feed-muted, rgba(246,247,251,.7));
+  font-size: 14px;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.title {
+  font-size: 42px;
+  font-weight: 800;
+  margin: 8px 0 24px;
+  color: var(--app-text, #111);
+}
+
+.muted { color: var(--feed-muted, #6b7280); }
+
+.actions { display: flex; gap: 12px; margin-top: 12px; }
+.btn {
+  display: inline-block; padding: 10px 16px; border-radius: 12px;
+  background: var(--brand-accent, #d4af37); color: #111; font-weight: 600;
+}
+.btnGhost {
+  display: inline-block; padding: 10px 16px; border-radius: 12px;
+  border: 1px solid var(--feed-border, rgba(255,255,255,.12));
+  color: var(--app-text, #111);
+}
+
+.profileCard {
+  display: grid; grid-template-columns: 88px 1fr; gap: 16px;
+  padding: 16px; background: var(--card-bg, #111827);
+  border: 1px solid var(--feed-border, rgba(255,255,255,.12));
+  border-radius: 16px; margin-bottom: 20px;
+}
+.avatar { width: 88px; height: 88px; border-radius: 999px;
+  background: linear-gradient(120deg, rgba(212,175,55,.2), rgba(255,255,255,.08)); }
+.profileInfo { display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.username { font-size: 20px; font-weight: 700; color: var(--app-text, #fff); }
+.email { font-size: 14px; color: var(--feed-muted, #9ca3af); }
+
+.tiles {
+  display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 14px; margin: 12px 0 28px;
+}
+.tile { background: var(--card-bg, #111827); border: 1px solid var(--feed-border, rgba(255,255,255,.12)); border-radius: 16px; padding: 16px; }
+.tileLabel { color: var(--feed-muted, #9ca3af); font-size: 13px; }
+.tileValue { margin-top: 4px; font-size: 24px; font-weight: 800; color: var(--app-text, #fff); }
+
+.block { margin-top: 24px; }
+.h2 { font-size: 22px; font-weight: 800; margin-bottom: 12px; color: var(--app-text, #fff); }
+
+.grid { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 14px; }
+.card { display: block; background: var(--card-bg, #111827); border: 1px solid var(--feed-border, rgba(255,255,255,.12)); border-radius: 16px; padding: 16px; }
+.cardTitle { line-height: 1.25; color: var(--app-text, #fff); font-weight: 700; }
+.cardSource { margin-top: 8px; font-size: 13px; color: var(--feed-muted, #9ca3af); }
+.cardSource span { color: var(--brand-accent, #d4af37); }
+
+.skeletonRow {
+  height: 16px; margin: 8px 0; border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.12), rgba(255,255,255,.05));
+  animation: s 1.2s infinite linear;
+}
+@keyframes s { from{background-position:0 0} to{background-position:100% 0} }
+
+@media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .profileCard { grid-template-columns: 56px 1fr; }
+  .avatar { width:56px; height:56px; }
+}

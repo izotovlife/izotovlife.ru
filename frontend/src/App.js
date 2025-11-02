@@ -1,21 +1,26 @@
 // Путь: frontend/src/App.js
-// Назначение: Корневой компонент SPA IzotovLife с поддержкой коротких SEO-путей.
-// Исправлено / дополнено (НИЧЕГО ЛИШНЕГО НЕ УДАЛИЛ):
-//   ✅ Перенёс маршруты активации аккаунта ВЫШЕ универсального "/:category/:slug/",
-//      чтобы их не перехватывал короткий путь (иначе /activate/<uid>/<token> попадал в NewsDetailPage).
-//   ✅ Старые редиректы категорий теперь используют useParams (без window.location), надёжнее.
-//   ✅ Добавил дубли без завершающего слэша для коротких путей (совместимость "/:slug" и "/:slug/").
-//   ✅ Для /categories добавил синоним с завершающим слэшем ("/categories/").
-//   ✅ Остальной порядок маршрутов сохранён: сначала специфические → потом общие.
+// Назначение: Корневой компонент SPA IzotovLife с поддержкой коротких SEO-путей и кабинетами.
+//
+// Что внутри и важные заметки:
+// - Порядок роутов: СНАЧАЛА специфические (активация, кабинеты, короткие служебные пути), ПОТОМ универсальные (/:slug, /:category/:slug).
+// - Добавлены кабинеты: /dashboard/reader, /dashboard/author, /dashboard/editor (+ легаси-редиректы).
+// - Добавлен короткий путь детальной авторской статьи: /a/:slug (расположен ВЫШЕ /:slug, чтобы не перехватывался категорией).
+// - Старые пути категорий редиректят на короткие.
+// - Прокси-страница активации аккаунта переносит на backend-страницу подтверждения.
+// - ВАЖНО: BrowserRouter уже в frontend/src/index.js — здесь НЕТ обёртки <Router>.
+//
+// Изменения (редкий кейс удаления — ОБЯЗАТЕЛЕН для корректной работы):
+//   ❌ Удалены старые привязки /author-dashboard → <ReaderPage/>.
+//   ✅ Вместо них добавлены корректные маршруты кабинетов и редиректы на них.
+//   ✅ Добавлен /a/:slug для ссылок из публичной страницы автора.
 
 import React from "react";
 import {
-  BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
   useLocation,
-  useParams, // уже было добавлено
+  useParams,
 } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
@@ -23,7 +28,8 @@ import Footer from "./components/Footer";
 import HeaderInfo from "./components/HeaderInfo";
 
 import FeedPage from "./pages/FeedPage";
-import CategoryPage from "./pages/CategoryPage"; // единый компонент категорий
+import CategoryPage from "./pages/CategoryPage";     // страница одной категории (/:slug)
+import CategoriesPage from "./pages/CategoryPage";   // список всех категорий (/categories) — легаси-совмещение
 import NewsDetailPage from "./pages/NewsDetailPage";
 import SearchPage from "./pages/SearchPage";
 import AuthorPage from "./pages/AuthorPage";
@@ -31,13 +37,17 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import StaticPage from "./pages/StaticPage";
 import SuggestPage from "./pages/SuggestPage";
+// === Кабинет читателя (избранное) ===
+import ReaderPage from "./pages/ReaderPage";
+// === Кабинеты автора и редактора (добавлены) ===
+import AuthorDashboard from "./pages/AuthorDashboard";
+import EditorDashboard from "./pages/EditorDashboard";
 
-// === Глобальная база backend API (для редиректов в прокси-страницах) ===
+// === Глобальная база backend API (для прокси-редиректов активации) ===
 const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
 
 // --- Редиректы для старых URL ---
 function RedirectToCleanNews() {
-  // Берём последний параметр из useParams (универсально для разных шаблонов)
   const params = useParams();
   const values = Object.values(params).filter(Boolean);
   const slug = values[values.length - 1];
@@ -49,7 +59,7 @@ function RedirectOldCategory() {
   return <Navigate to={`/${slug}/`} replace />;
 }
 
-// --- Прокрутка к началу при смене маршрута (UX приятнее) ---
+// --- Прокрутка к началу при смене маршрута ---
 function ScrollToTopOnRouteChange() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -63,15 +73,13 @@ function ScrollToTopOnRouteChange() {
 }
 
 // --- Прокси-страница активации аккаунта ---
-// Зачем: некоторые письма/ссылки могут вести на фронтовой маршрут /activate/:uid/:token
-// Компонент моментально перенаправит браузер на backend-эндпоинт,
-// который покажет красивую HTML-страницу и затем редиректит на /login.
 function ActivationProxy() {
   const { uid, token } = useParams();
   React.useEffect(() => {
     if (!uid || !token) return;
-    const url = `${API_BASE}/api/auth/activate/${uid}/${token}/?html=1`;
-    // Используем replace, чтобы не было "назад" на промежуточную страницу
+    const safeUid = encodeURIComponent(uid);
+    const safeToken = encodeURIComponent(token);
+    const url = `${API_BASE}/api/auth/activate/${safeUid}/${safeToken}/?html=1`;
     window.location.replace(url);
   }, [uid, token]);
   return (
@@ -93,25 +101,59 @@ function ActivationProxy() {
 
 export default function App() {
   return (
-    <Router>
+    <>
       <ScrollToTopOnRouteChange />
       <div className="App">
         <Navbar />
         <HeaderInfo compact={true} />
 
         <Routes>
-          {/* 🏠 Главная страница */}
+          {/* 🏠 Главная */}
           <Route path="/" element={<FeedPage />} />
 
           {/* 🗂️ Старые пути категорий → редирект */}
           <Route path="/news/category/:slug" element={<RedirectOldCategory />} />
           <Route path="/category/:slug" element={<RedirectOldCategory />} />
 
+          {/* ===================== КАБИНЕТЫ (ставим ВЫШЕ публичного /author/:id и коротких путей) ===================== */}
+          {/* Современные пути кабинетов */}
+          <Route path="/dashboard/reader" element={<ReaderPage />} />
+          <Route path="/dashboard/reader/" element={<ReaderPage />} />
+
+          <Route path="/dashboard/author" element={<AuthorDashboard />} />
+          <Route path="/dashboard/author/" element={<AuthorDashboard />} />
+
+          <Route path="/dashboard/editor" element={<EditorDashboard />} />
+          <Route path="/dashboard/editor/" element={<EditorDashboard />} />
+
+          {/* Базовый /dashboard → на кабинет читателя (чтобы было поведение «по умолчанию») */}
+          <Route path="/dashboard" element={<Navigate to="/dashboard/reader/" replace />} />
+          <Route path="/dashboard/" element={<Navigate to="/dashboard/reader/" replace />} />
+
+          {/* Легаси-синонимы кабинетов */}
+          <Route path="/cabinet" element={<Navigate to="/dashboard/reader/" replace />} />
+          <Route path="/cabinet/" element={<Navigate to="/dashboard/reader/" replace />} />
+          <Route path="/reader" element={<Navigate to="/dashboard/reader/" replace />} />
+          <Route path="/reader/" element={<Navigate to="/dashboard/reader/" replace />} />
+          <Route path="/author-dashboard" element={<Navigate to="/dashboard/author/" replace />} />
+          <Route path="/author-dashboard/" element={<Navigate to="/dashboard/author/" replace />} />
+          <Route path="/editor-dashboard" element={<Navigate to="/dashboard/editor/" replace />} />
+          <Route path="/editor-dashboard/" element={<Navigate to="/dashboard/editor/" replace />} />
+          {/* Легаси-ошибочные/служебные под /author/* → редиректы на кабинеты */}
+          <Route path="/author/dashboard" element={<Navigate to="/dashboard/author/" replace />} />
+          <Route path="/author/dashboard/" element={<Navigate to="/dashboard/author/" replace />} />
+          <Route path="/author/editor" element={<Navigate to="/dashboard/editor/" replace />} />
+          <Route path="/author/editor/" element={<Navigate to="/dashboard/editor/" replace />} />
+          <Route path="/author/reader" element={<Navigate to="/dashboard/reader/" replace />} />
+          <Route path="/author/reader/" element={<Navigate to="/dashboard/reader/" replace />} />
+
           {/* 🔍 Поиск, авторы и прочие страницы */}
           <Route path="/search" element={<SearchPage />} />
+
+          {/* Публичная страница автора — ДОЛЖНА идти ПОСЛЕ кабинетов */}
           <Route path="/author/:id" element={<AuthorPage />} />
 
-          {/* 🔐 Авторизация и статические страницы */}
+          {/* 🔐 Авторизация и статические */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/pages/:slug" element={<StaticPage />} />
@@ -119,10 +161,8 @@ export default function App() {
           {/* 📨 Предложить новость */}
           <Route path="/suggest" element={<SuggestPage />} />
 
-          {/* ✅ Посредники активации аккаунта (фронтовые дружелюбные URL)
-              ⬇️ ВАЖНО: стоят ВЫШЕ универсального "/:category/:slug", чтобы не перехватывались. */}
+          {/* ✅ Активация аккаунта — выше универсальных путей */}
           <Route path="/activate/:uid/:token" element={<ActivationProxy />} />
-          {/* Alias для старых писем: /registration/confirm/<uid>/<token> */}
           <Route path="/registration/confirm/:uid/:token" element={<ActivationProxy />} />
 
           {/* 📰 Детальные новости (для обратной совместимости) */}
@@ -130,16 +170,21 @@ export default function App() {
           <Route path="/news/:category/:slug" element={<NewsDetailPage />} />
           <Route path="/news/:slug" element={<NewsDetailPage />} />
 
-          {/* ✅ Новые короткие пути */}
-          {/* Категории верхнего уровня */}
-          <Route path="/categories" element={<CategoryPage />} />
-          <Route path="/categories/" element={<CategoryPage />} /> {/* синоним со слэшем */}
+          {/* ✅ Короткий путь детальной авторской статьи (используется в AuthorPage) */}
+          <Route path="/a/:slug" element={<NewsDetailPage />} />
+          <Route path="/a/:slug/" element={<NewsDetailPage />} />
 
-          {/* Короткий путь одной категории */}
+          {/* ✅ Новые короткие пути */}
+          {/* Список всех категорий */}
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/categories/" element={<CategoriesPage />} /> {/* синоним со слэшем */}
+
+          {/* Одна категория */}
+          {/* ВАЖНО: /a/:slug уже объявлен выше, чтобы не перехватывался правилом ниже */}
           <Route path="/:slug" element={<CategoryPage />} />
           <Route path="/:slug/" element={<CategoryPage />} />
 
-          {/* Детальные новости по коротким путям (например /politika/rossiya-startuet/) */}
+          {/* Детальные новости по коротким путям */}
           <Route path="/:category/:slug" element={<NewsDetailPage />} />
           <Route path="/:category/:slug/" element={<NewsDetailPage />} />
 
@@ -147,8 +192,14 @@ export default function App() {
           <Route path="/rss/:slug" element={<RedirectToCleanNews />} />
           <Route path="/news/a/:slugOrId" element={<RedirectToCleanNews />} />
           <Route path="/news/i/:slugOrId" element={<RedirectToCleanNews />} />
-          <Route path="/news/imported/:sourceSlug/:importedSlug" element={<RedirectToCleanNews />} />
-          <Route path="/news/:sourceSlug/:importedSlug" element={<RedirectToCleanNews />} />
+          <Route
+            path="/news/imported/:sourceSlug/:importedSlug"
+            element={<RedirectToCleanNews />}
+          />
+          <Route
+            path="/news/:sourceSlug/:importedSlug"
+            element={<RedirectToCleanNews />}
+          />
 
           {/* 🚧 Фолбэк на главную */}
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -156,6 +207,6 @@ export default function App() {
 
         <Footer />
       </div>
-    </Router>
+    </>
   );
 }

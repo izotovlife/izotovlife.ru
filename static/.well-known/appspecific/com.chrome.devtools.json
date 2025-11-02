@@ -1,0 +1,9 @@
+# Путь: backend/static/.well-known/appspecific/com.chrome.devtools.json
+# Назначение: Подсказка Chrome DevTools для Automatic Workspace Folders.
+# Примечание: harmless в проде; в дев-режиме убирает 404 от DevTools.
+{
+  "workspace": {
+    "uuid": "5f2a1a5e-7b9b-4d1a-97bf-9b0c7a0f2b3d",
+    "root": "C:\\Users\\ASUS Vivobook\\PycharmProjects\\PythonProject\\news_aggregator"
+  }
+}

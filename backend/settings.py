@@ -1,3 +1,10 @@
+# Путь: backend/settings.py
+# Назначение: Главные настройки Django-проекта IzotovLife (БД, приложения, CORS, DRF, почта, JWT и т.д.).
+# Что добавлено/обновлено сейчас:
+#   ✅ ДОБАВЛЕНО: 'django.middleware.gzip.GZipMiddleware' (сжимает ответы, в т.ч. sitemap).
+#   ✅ Ранее добавляли: SITEMAP_PROTOCOL = "https" if not DEBUG else "http".
+#   ❗ Остальной файл сохранён без изменений.
+
 from pathlib import Path
 from datetime import timedelta
 from urllib.parse import urlparse
@@ -68,6 +75,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.gzip.GZipMiddleware",  # ← ДОБАВЛЕНО: сжатие ответов (включая sitemap)
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     # "django.middleware.csrf.CsrfViewMiddleware",
@@ -223,6 +231,9 @@ else:
 if os.getenv("USE_X_FORWARDED_PROTO", "False").lower() in ("true", "1", "yes"):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# Протокол для абсолютных ссылок в sitemap (https в проде, http в debug)
+SITEMAP_PROTOCOL = "https" if not DEBUG else "http"
+
 SUGGEST_NEWS_EMAIL_TO = os.getenv("SUGGEST_NEWS_EMAIL_TO", "izotovlife@yandex.ru")
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.yandex.ru")
@@ -236,8 +247,11 @@ if DEBUG and not EMAIL_HOST_PASSWORD:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_SUBJECT_PREFIX = os.getenv("EMAIL_SUBJECT_PREFIX", "[IzotovLife] ")
 
+# === АВТОРИЗАЦИЯ/ЛОГАУТ (обновлено ранее) ===
 LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/admin/login/"
+ACCOUNT_LOGOUT_REDIRECT_URL = "/admin/login/"
+
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if not DEBUG else "http"
