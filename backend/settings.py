@@ -3,6 +3,11 @@
 # Что добавлено/обновлено сейчас:
 #   ✅ ДОБАВЛЕНО: 'django.middleware.gzip.GZipMiddleware' (сжимает ответы, в т.ч. sitemap).
 #   ✅ Ранее добавляли: SITEMAP_PROTOCOL = "https" if not DEBUG else "http".
+#   ✅ ДОБАВЛЕНО (allauth + dj-rest-auth соц-логин Яндекс/ВК без удаления старого):
+#       • ACCOUNT_AUTHENTICATION_METHOD="email", ACCOUNT_USERNAME_REQUIRED=False
+#       • SOCIALACCOUNT_LOGIN_ON_GET=True, SOCIALACCOUNT_QUERY_EMAIL=True, SOCIALACCOUNT_STORE_TOKENS=True
+#       • Расширены SOCIALACCOUNT_PROVIDERS['vk'/'yandex'] через setdefault().update() (scope/fields/version)
+#       • DJREST_AUTH={'USE_JWT': True} (вдобавок к REST_USE_JWT=True)
 #   ❗ Остальной файл сохранён без изменений.
 
 from pathlib import Path
@@ -282,3 +287,48 @@ THUMB_DEFAULT_FORMATS = ("webp", "jpg")
 THUMB_DEFAULT_QUALITY = 82
 THUMB_MAX_ORIGINAL_BYTES = 8 * 1024 * 1024
 THUMB_REQUEST_TIMEOUT = (6.0, 12.0)
+
+# =========================
+# 🔻 ДОБАВЛЕНО: allauth/dj-rest-auth для соц-входа Яндекс/ВК (без удаления старого)
+# =========================
+
+# Логинимся по email, а не по username (не ломает модели; username можно оставить в БД)
+ACCOUNT_AUTHENTICATION_METHOD = "email"      # ← ДОБАВЛЕНО
+ACCOUNT_USERNAME_REQUIRED = False            # ← ДОБАВЛЕНО
+
+# Allauth SocialAccount — удобные флаги для callback-потока в попапе
+SOCIALACCOUNT_LOGIN_ON_GET = True            # ← ДОБАВЛЕНО (автовход по GET после успешного OAuth-колбэка)
+SOCIALACCOUNT_QUERY_EMAIL = True             # ← ДОБАВЛЕНО (запрашивать email у провайдера, если возможно)
+SOCIALACCOUNT_STORE_TOKENS = True            # ← ДОБАВЛЕНО (хранить access_token/refresh_token в SocialToken)
+
+# dj-rest-auth явный флаг JWT (в дополнение к REST_USE_JWT=True)
+DJREST_AUTH = {                               # ← ДОБАВЛЕНО
+    "USE_JWT": True,
+}
+
+# Расширяем ваш SOCIALACCOUNT_PROVIDERS, НЕ затирая исходный словарь:
+# — добавляем scope/fields/version для VK,
+# — и scope для Yandex.
+SOCIALACCOUNT_PROVIDERS.setdefault("vk", {}).setdefault("APP", {}).update({
+    "client_id": os.getenv("VK_CLIENT_ID"),
+    "secret": os.getenv("VK_SECRET"),
+    "key": "",
+})
+SOCIALACCOUNT_PROVIDERS["vk"].update({
+    "SCOPE": ["email"],                       # email приходит отдельным полем от VK API
+    "FIELDS": ["email", "first_name", "last_name", "photo_max"],
+    "VERSION": "5.199",
+})
+
+SOCIALACCOUNT_PROVIDERS.setdefault("yandex", {}).setdefault("APP", {}).update({
+    "client_id": os.getenv("YANDEX_CLIENT_ID"),
+    "secret": os.getenv("YANDEX_SECRET"),
+    "key": "",
+})
+SOCIALACCOUNT_PROVIDERS["yandex"].update({
+    # Для яндекса достаточно login:email (login:info — доп. профиль; оставлю его тоже)
+    "SCOPE": ["login:email", "login:info"],
+})
+
+# Google оставляем в списке провайдеров для совместимости с существующим кодом,
+# но в UI кнопку Google ВЫКЛЮЧАЕМ (на форме входа). Настройки не трогаем.
