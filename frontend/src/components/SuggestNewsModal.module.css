@@ -1,4 +1,13 @@
-/* SuggestNewsModal.module.css */
+/* Путь: frontend/src/components/SuggestNewsModal.module.css
+   Назначение: Стили модального окна "Предложить новость".
+   Что внутри (полный файл):
+   - Модалка с прокручиваемой формой и фиксированными кнопками снизу.
+   - Тёмная тема по умолчанию.
+   - ✅ ДОБАВЛЕНО: Подняли badge reCAPTCHA v3 над затемнением (z-index очень высокий).
+   - ✅ ДОБАВЛЕНО: Скрыли старый v2-виджет (.g-recaptcha), если где-то остался.
+   - ✅ ДОБАВЛЕНО: .modal теперь position: relative; чтобы .actions (absolute) фиксировались к низу модалки.
+*/
+
 .backdrop {
   position: fixed;
   inset: 0;
@@ -22,6 +31,9 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  /* ✅ чтобы .actions позиционировались относительно модалки, а не окна */
+  position: relative;
+  z-index: 2001;
 }
 
 .header {
@@ -167,4 +179,17 @@
     opacity: 0;
     transform: translateY(10px);
   }
+}
+
+/* ===================== reCAPTCHA ===================== */
+/* ✅ Поднимаем badge v3 над затемнением модалки */
+:global(.grecaptcha-badge) {
+  z-index: 2147483647;  /* выше всего */
+  bottom: 12px;
+  right: 12px;
+}
+
+/* ✅ Если где-то остался старый v2-виджет — прячем его (модалка работает на v3) */
+:global(.g-recaptcha) {
+  display: none !important;
 }

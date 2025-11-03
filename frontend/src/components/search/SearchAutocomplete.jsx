@@ -1,13 +1,17 @@
 // Путь: frontend/src/components/search/SearchAutocomplete.jsx
 // Назначение: Поле поиска с автоподсказками для новостей.
-// Исправлено (v5):
+// Исправлено (v6):
 //   ✅ fetchSmartSearch заменён на searchAll (новый API).
 //   ✅ Работает без /source/ в адресах.
 //   ✅ Поддерживает debounce, AbortController и подсветку совпадений.
+//   ✅ ВМЕСТО «Новости» показываем реальный источник (extractSourceName).
+//
+// Важно: логику не ломаем, только добавили импорт и заменили вывод meta.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { searchAll } from "../../Api"; // ✅ заменено
+import { extractSourceName } from "../../utils/source"; // ✅ НОВОЕ: источник
 import css from "./SearchAutocomplete.module.css";
 
 // --- Вспомогательные функции формирования ссылок ---
@@ -106,6 +110,7 @@ export default function SearchAutocomplete() {
             list.map((it) => {
               const href = buildDetailHref(it);
               const titleHtml = it.highlighted_title || it.title || "Без названия";
+              const source = extractSourceName(it); // ✅ имя источника (или домен)
               return (
                 <Link
                   key={it.id || it.slug || Math.random()}
@@ -118,7 +123,7 @@ export default function SearchAutocomplete() {
                     dangerouslySetInnerHTML={{ __html: titleHtml }}
                   />
                   <div className={css.meta}>
-                    {it?.category?.name || it?.source_name || "Новости"}
+                    {source || "Новости" /* безопасный фолбэк, если источник не пришёл */}
                   </div>
                 </Link>
               );

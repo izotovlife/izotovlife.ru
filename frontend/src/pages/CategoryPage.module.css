@@ -4,7 +4,8 @@
    ✅ Скелетон-анимация для карточек категорий до прихода обложки (.skeleton)
    ✅ Название категории выровнено по центру карточки
    ✅ Базовые стили сохранены
-*/
+   ✅ НОВОЕ: .news-grid-3 — фиксированные 3 колонки для случая, когда нет текстовых новостей
+   ✅ НОВОЕ: заголовок в светлой теме — строго чёрный (поверх базового цвета) */
 
 /* Базовая обёртка */
 .page {
@@ -38,6 +39,26 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
+
+/* НОВОЕ: полноценные 3 колонки с фото, когда нет текстовых новостей */
+.news-grid-3 {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .news-grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1024px) {
+  .news-grid-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* обёртка для режима «3 колонки с фото» (можно расширять при необходимости) */
+.fullGrid { }
+
+/* Светлая тема: заголовок категории — строго чёрный */
+:global(:root[data-theme="light"]) .title,
+:global(body.theme-white) .title { color: #000 !important; }
 
 .empty {
   color: #999;
@@ -125,7 +146,7 @@
 /* адаптив */
 @media (max-width: 768px) {
   .title { font-size: 28px; }
-  .news-grid { gap: 12px; }
+  .news-grid, .news-grid-3 { gap: 12px; }
   .catGrid { gap: 12px; }
   .catCard { height: 160px; }
   .catName { font-size: 18px; }

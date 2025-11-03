@@ -1,18 +1,20 @@
 # Путь: backend/rssfeed/management/commands/import_rss.py
 # Назначение: Импорт новостей из RSS-источников (заголовок, ссылка, дата, картинка, категория, текст/summary).
 # Обновления:
-#   • Добавлен аргумент --allow-empty: если включён, то даже новости без текста сохраняются с меткой "[Без текста]".
-#   • В обычном режиме пустышки отбрасываются.
-#   • Всё остальное (фолбэки, парсинг страницы, абзацы, картинки) сохранено.
-#   • ✅ Добавлен автоматический вызов cleanup_broken_news() после завершения импорта.
+#   • ✅ Ленту качаем через rssfeed.net.get_rss_bytes() (ретраи, бэкофф, пер-доменные таймауты; для aif.ru read≈28–38s).
+#   • ✅ feedparser.parse() получает bytes, а не URL → никаких таймаутов на 10s от сторонних вызовов.
+#   • ✅ fetch_page() сначала пытается rssfeed.net.fetch_url(), затем (фолбэк) requests.get(..., timeout=8).
+#   • ✅ Аргумент --allow-empty: если включён, сохраняем даже без текста с пометкой “[Без текста]”.
+#   • ✅ После импорта вызывается cleanup_broken_news().
+#   • Вся остальная логика и функции сохранены. НИЧЕГО ЛИШНЕГО НЕ УДАЛЕНО.
 
-import feedparser
 import re
 import time
 import html
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
+import feedparser
 import requests
 from bs4 import BeautifulSoup
 
@@ -22,11 +24,14 @@ from django.utils.text import slugify
 from django.db import transaction
 
 from news.models import ImportedNews, Category, NewsSource
-from news.utils.cleanup import cleanup_broken_news   # ✅ правильный импорт
+from news.utils.cleanup import cleanup_broken_news
+
+# 🔌 Наш надёжный сетевой слой
+from rssfeed.net import get_rss_bytes, fetch_url
 
 # --- ПАРАМЕТРЫ КАЧЕСТВА -------------------------------------------------------
 
-REQUEST_TIMEOUT = 8
+REQUEST_TIMEOUT = 8     # используется только для HTML-фолбэка (НЕ для RSS!)
 MIN_SUMMARY_CHARS = 120
 MIN_PARAGRAPHS = 1
 MAX_SUMMARY_CHARS = 1200
@@ -49,7 +54,6 @@ TRASH_PATTERNS = [
 ]
 TRASH_RE = re.compile("|".join(TRASH_PATTERNS), re.IGNORECASE | re.MULTILINE)
 
-
 # --- УТИЛИТЫ ------------------------------------------------------------------
 
 def strip_tracking_params(url: str) -> str:
@@ -63,7 +67,6 @@ def strip_tracking_params(url: str) -> str:
         return urlunparse(parsed._replace(query=new_query))
     except Exception:
         return url
-
 
 def html_to_text_preserve_paragraphs(raw_html: str) -> str:
     if not raw_html:
@@ -82,7 +85,6 @@ def html_to_text_preserve_paragraphs(raw_html: str) -> str:
     text = TRASH_RE.sub("", text).strip()
     return text
 
-
 def first_paragraphs(text: str, max_chars: int = MAX_SUMMARY_CHARS) -> str:
     if not text:
         return ""
@@ -99,7 +101,6 @@ def first_paragraphs(text: str, max_chars: int = MAX_SUMMARY_CHARS) -> str:
             break
     return "\n\n".join(picked).strip()[:max_chars].rstrip()
 
-
 def extract_link(entry) -> str:
     for key in ("link", "id", "href"):
         url = getattr(entry, key, None) or entry.get(key)
@@ -107,13 +108,11 @@ def extract_link(entry) -> str:
             return strip_tracking_params(url)
     return ""
 
-
 def extract_title(entry) -> str:
     val = entry.get("title")
     if val:
         return html.unescape(BeautifulSoup(val, "lxml").get_text(" ").strip())
     return ""
-
 
 def extract_raw_html_from_entry(entry) -> str:
     if entry.get("content"):
@@ -128,7 +127,6 @@ def extract_raw_html_from_entry(entry) -> str:
     if entry.get("description"):
         return entry["description"]
     return ""
-
 
 def extract_image_from_entry(entry) -> str:
     media_content = entry.get("media_content") or entry.get("media:content")
@@ -150,7 +148,6 @@ def extract_image_from_entry(entry) -> str:
             return thumb.get("url") or thumb.get("@url")
     return ""
 
-
 def extract_published(entry) -> datetime | None:
     for key in ("published_parsed", "updated_parsed"):
         if entry.get(key):
@@ -161,7 +158,6 @@ def extract_published(entry) -> datetime | None:
                 pass
     return None
 
-
 def extract_category(entry) -> str:
     tags = entry.get("tags") or []
     if tags:
@@ -171,16 +167,31 @@ def extract_category(entry) -> str:
             return label.strip()
     return "Лента новостей"
 
-
 def fetch_page(url: str) -> BeautifulSoup | None:
+    """
+    1) Пытаемся через наш устойчивый fetch_url() (пер-доменные таймауты).
+    2) Фолбэк: быстрый requests.get(..., timeout=8).
+    """
     try:
-        resp = requests.get(url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
+        res = fetch_url(url)
+        if res.status == 200 and res.data:
+            return BeautifulSoup(res.data, "lxml")
+    except Exception:
+        pass
+    try:
+        resp = requests.get(
+            url,
+            timeout=REQUEST_TIMEOUT,
+            headers={
+                "User-Agent": USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+        )
         if resp.status_code != 200 or not resp.text:
             return None
         return BeautifulSoup(resp.text, "lxml")
     except Exception:
         return None
-
 
 def page_extract_text(soup: BeautifulSoup) -> str:
     if not soup:
@@ -213,7 +224,6 @@ def page_extract_text(soup: BeautifulSoup) -> str:
             return "\n\n".join(ps[:3]).strip()
     return ""
 
-
 def page_extract_image(soup: BeautifulSoup) -> str:
     if not soup:
         return ""
@@ -229,16 +239,13 @@ def page_extract_image(soup: BeautifulSoup) -> str:
         return img["src"].strip()
     return ""
 
-
 def model_has_field(model, field_name: str) -> bool:
     return any(getattr(f, "name", "") == field_name for f in model._meta.get_fields())
-
 
 def assign_if_exists(instance, **kwargs):
     for k, v in kwargs.items():
         if model_has_field(instance.__class__, k):
             setattr(instance, k, v)
-
 
 # --- ОСНОВНАЯ ЛОГИКА ----------------------------------------------------------
 
@@ -279,10 +286,12 @@ class Command(BaseCommand):
 
             self.stdout.write(self.style.NOTICE(f"→ Импорт из {src.name} ({src.feed_url})"))
 
+            # ВАЖНО: качаем ленту только через наш fetcher (пер-доменные таймауты, ретраи)
             try:
-                feed = feedparser.parse(src.feed_url)
+                data, enc, meta = get_rss_bytes(src.feed_url)
+                feed = feedparser.parse(data)
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"  Ошибка парсинга: {e}"))
+                self.stdout.write(self.style.ERROR(f"  Ошибка загрузки/парсинга ленты: {e}"))
                 continue
 
             if not feed or not feed.get("entries"):
@@ -374,6 +383,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"  ✓ Добавлено: {added}  |  Пропущено: {skipped}"))
 
         self.stdout.write(self.style.SUCCESS(f"ГОТОВО. Всего добавлено: {total_new}, пропущено: {total_skipped}"))
-
-        # ✅ Автоматическая чистка после импорта
         cleanup_broken_news(self.stdout)

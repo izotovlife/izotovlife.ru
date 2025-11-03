@@ -1,18 +1,24 @@
-/* Путь: frontend/src/components/SmartTitle.module.css
-   Назначение: Стили аккуратного заголовка со строкой подзаголовка. */
+/* Путь: frontend/src/components/SmartMedia.module.css
+   Назначение: Базовые стили безопасного рендера медиа (img / audio).
+   Особенности:
+   - Картинка растягивается по контейнеру без искажений (object-fit: cover)
+   - Предотвращаем «дёрганья» при загрузке
+*/
 
-.wrap {
-  margin: 8px 0 16px;
+.img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;        /* плавное кадрирование под контейнер */
+  object-position: center;
+  background: transparent;  /* фон берётся из темы */
+  border: 0;
 }
 
-.main {
-  margin: 0;
-  line-height: 1.15;
-}
-
-.sub {
-  margin-top: 8px;
-  color: #9aa6bf;
-  font-size: 0.95em;
-  line-height: 1.35;
+.audio {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  outline: none;
+  background: transparent;
 }

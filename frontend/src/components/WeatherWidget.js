@@ -1,13 +1,26 @@
 // Путь: frontend/src/components/WeatherWidget.js
 // Назначение: Виджет погоды для шапки сайта IzotovLife.
-// Обновления (устранён ESLint warning):
-//   ✅ loadByCity обёрнут в useCallback (стабильная ссылка).
-//   ✅ useEffect теперь зависит от [loadByCity, city] — предупреждение исчезает.
+// Обновления:
+//   ✅ ESLint: loadByCity обёрнут в useCallback; useEffect зависит от [loadByCity, city].
+//   ✅ Тихо игнорируем AbortError (управляемые отмены запросов) — нет лишних ошибок в консоли.
+//   ✅ Подсказки города (geocoding) теперь тоже с AbortController — без гонок и лишних логов.
 //   ✅ Остальной функционал без изменений: кэш (30 мин), подсказки, автообновление, фолбэки.
-//   ❗ Ничего лишнего не удалял; заменил прямой вызов на мемоизированный, что требуется для корректной работы правил хуков.
+//   ❗ Ничего существующего не удалял, только добавил обработку отмены и заменил console.error на «умный» логгер.
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import "./WeatherWidget.css";
+
+/* ---------- Утилиты подавления шумных ошибок ---------- */
+
+// Определяем, что ошибка — управляемая отмена fetch
+function isAbortError(e) {
+  return !!e && (e.name === "AbortError" || e.code === 20);
+}
+// Логируем только НЕ-отмены
+function logWeatherError(prefix, e) {
+  if (isAbortError(e)) return;
+  console.warn(prefix, e);
+}
 
 /* ---------- Константы и утилиты ---------- */
 
@@ -131,7 +144,8 @@ export default function WeatherWidget() {
         lon: Number(first.longitude),
         name: first.name || q,
       };
-    } catch {
+    } catch (e) {
+      if (isAbortError(e)) return null;
       return null;
     }
   }, []);
@@ -203,6 +217,7 @@ export default function WeatherWidget() {
         }
       }
 
+      // Отменяем предыдущий запрос (если ещё идёт)
       if (abortRef.current) abortRef.current.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -248,7 +263,9 @@ export default function WeatherWidget() {
           setManualMode(false);
         }, 80);
       } catch (e) {
-        console.error("Погода (fetch):", e);
+        // Тихо игнорируем управляемую отмену
+        if (isAbortError(e)) return;
+        logWeatherError("Погода (fetch):", e);
         const cached = readCache();
         if (cached) setWeather({ ...cached, stale: true });
         setLoading(false);
@@ -269,27 +286,37 @@ export default function WeatherWidget() {
     };
   }, [loadByCity, city]);
 
-  // Подсказки города
+  // Подсказки города (с отменой fetch)
   useEffect(() => {
     if (!manualMode || !city || city.length < 2) {
       setSuggestions([]);
       return;
     }
+
+    const ctrl = new AbortController();
     clearTimeout(debounceRef.current);
+
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
             city
-          )}&count=5&language=ru`
+          )}&count=5&language=ru`,
+          { signal: ctrl.signal }
         );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setSuggestions(data?.results || []);
-      } catch {
+      } catch (e) {
+        if (isAbortError(e)) return;
         setSuggestions([]);
       }
     }, 300);
-    return () => clearTimeout(debounceRef.current);
+
+    return () => {
+      clearTimeout(debounceRef.current);
+      ctrl.abort();
+    };
   }, [city, manualMode]);
 
   // Автообновление каждые 15 минут
